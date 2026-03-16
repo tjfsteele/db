@@ -6,48 +6,20 @@
     <title>Energy Price Tracker</title>
     <style>
         body { 
-            background: white; 
-            color: black; 
-            font-family: sans-serif; 
-            text-align: center; 
-            margin: 0; 
-            padding: 0;
-            display: flex; 
-            flex-direction: column; 
-            justify-content: center; 
-            height: 100vh;
+            background: white; color: black; font-family: sans-serif; 
+            text-align: center; margin: 0; padding: 0;
+            display: flex; flex-direction: column; justify-content: center; height: 100vh;
             overflow: hidden;
         }
-        #price-container {
-            margin-bottom: 20px;
-        }
-        #price { 
-            font-size: 160px; 
-            font-weight: bold; 
-            display: block; 
-            line-height: 0.9;
-        }
-        #unit { 
-            font-size: 40px; 
-            display: block; 
-            margin-top: 10px;
-        }
+        #price-container { margin-bottom: 20px; }
+        #price { font-size: 160px; font-weight: bold; display: block; line-height: 0.9; }
+        #unit { font-size: 40px; display: block; margin-top: 10px; }
         #next-container { 
-            font-size: 36px; 
-            color: #333; 
-            margin-top: 40px; 
-            border-top: 4px solid #000; 
-            padding-top: 20px; 
-            display: inline-block; 
-            width: 80%; 
-            margin-left: auto; 
-            margin-right: auto;
+            font-size: 36px; color: #333; margin-top: 40px; 
+            border-top: 4px solid #000; padding-top: 20px; 
+            display: inline-block; width: 80%; margin-left: auto; margin-right: auto;
         }
-        #time { 
-            font-size: 22px; 
-            color: #666; 
-            margin-top: 40px; 
-        }
+        #time { font-size: 22px; color: #666; margin-top: 40px; }
     </style>
 </head>
 <body>
@@ -64,11 +36,20 @@
     <div id="time">Waking up...</div>
 
     <script>
+        // NEW: Load saved data immediately on startup
+        function loadStoredData() {
+            var savedPrice = localStorage.getItem('agile_price');
+            var savedNext = localStorage.getItem('agile_next');
+            var savedTime = localStorage.getItem('agile_time');
+
+            if (savedPrice) document.getElementById('price').innerHTML = savedPrice;
+            if (savedNext) document.getElementById('next-price').innerHTML = savedNext;
+            if (savedTime) document.getElementById('time').innerHTML = "Last: " + savedTime + " (Syncing...)";
+        }
+
         function updatePrice() {
-            // Step 1: Tell the user we are starting
             document.getElementById('time').innerHTML = "Connecting to Wi-Fi...";
 
-            // Step 2: Wait 5 seconds for Kobo Wi-Fi to stabilize after the page refresh
             setTimeout(function() {
                 var url = "https://script.google.com/macros/s/AKfycby4gf4zULR-cQzekmZpXoBs5txrVYr7TJIQWCcwfbwkVy1uqrpz1aniyvkweHTfRbue/exec?nocache=" + new Date().getTime();
                 var xhr = new XMLHttpRequest();
@@ -76,7 +57,7 @@
                 document.getElementById('time').innerHTML = "Fetching Price...";
                 
                 xhr.open("GET", url, true);
-                xhr.timeout = 25000; // Give it 25 seconds before giving up
+                xhr.timeout = 25000;
 
                 xhr.onreadystatechange = function () {
                     if (xhr.readyState == 4) {
@@ -85,6 +66,7 @@
                             var parts = data.split("|");
                             
                             if (parts.length >= 2) {
+                                // Update Display
                                 document.getElementById('price').innerHTML = parts[0];
                                 document.getElementById('next-price').innerHTML = parts[1];
                                 
@@ -92,7 +74,13 @@
                                 var h = now.getHours();
                                 var m = now.getMinutes();
                                 var timeStr = (h < 10 ? '0' : '') + h + ":" + (m < 10 ? '0' : '') + m;
-                                document.getElementById('time').innerHTML = "Last Updated: " + timeStr;
+                                
+                                document.getElementById('time').innerHTML = "Updated: " + timeStr;
+
+                                // NEW: Save to LocalStorage for the next reload
+                                localStorage.setItem('agile_price', parts[0]);
+                                localStorage.setItem('agile_next', parts[1]);
+                                localStorage.setItem('agile_time', timeStr);
                             } else {
                                 document.getElementById('time').innerHTML = "Data Format Error";
                             }
@@ -102,19 +90,14 @@
                     }
                 };
 
-                xhr.onerror = function() {
-                    document.getElementById('time').innerHTML = "Network Failed. Retrying...";
-                };
-
-                xhr.ontimeout = function() {
-                    document.getElementById('time').innerHTML = "Request Timed Out.";
-                };
-
+                xhr.onerror = function() { document.getElementById('time').innerHTML = "Network Failed."; };
                 xhr.send();
             }, 5000); 
         }
 
-        // Run the function immediately when the page loads
+        // 1. Show old data first
+        loadStoredData();
+        // 2. Start the update process
         updatePrice();
     </script>
 </body>
