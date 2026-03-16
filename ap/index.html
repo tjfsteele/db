@@ -34,45 +34,45 @@
 
     <script>
         function updatePrice() {
-            // 1. Apply Jitter to prevent screen ghosting
+            // 1. Jitter for screen health
             var wrapper = document.getElementById('jitter-wrapper');
-            var randomX = Math.floor(Math.random() * 21) - 10; // -10 to +10px
-            var randomY = Math.floor(Math.random() * 21) - 10; // -10 to +10px
+            var randomX = Math.floor(Math.random() * 21) - 10; 
+            var randomY = Math.floor(Math.random() * 21) - 10; 
             wrapper.style.transform = "translate(" + randomX + "px," + randomY + "px)";
-
-            // 2. Fetch data from your Google Script
-            var url = "https://script.google.com/macros/s/AKfycby4gf4zULR-cQzekmZpXoBs5txrVYr7TJIQWCcwfbwkVy1uqrpz1aniyvkweHTfRbue/exec"; 
-            var xhr = new XMLHttpRequest();
-            xhr.open("GET", url, true);
-            xhr.onreadystatechange = function () {
-                if (xhr.readyState == 4 && xhr.status == 200) {
-                    var parts = xhr.responseText.split("|");
-                    document.getElementById('price').innerHTML = parts[0];
-                    document.getElementById('next-price').innerHTML = parts[1];
-                    
-                    var now = new Date();
-                    var m = now.getMinutes();
-                    var h = now.getHours();
-                    // Added a leading zero for minutes and hours for cleaner look
-                    var timeString = (h < 10 ? '0' : '') + h + ":" + (m < 10 ? '0' : '') + m;
-                    document.getElementById('time').innerHTML = "Updated: " + timeString;
-                }
-            };
-            xhr.send();
+        
+            // 2. Fetch data with a "Cache Buster" (?v=...) to prevent stale results
+            var url = "https://script.google.com/macros/s/AKfycby4gf4zULR-cQzekmZpXoBs5txrVYr7TJIQWCcwfbwkVy1uqrpz1aniyvkweHTfRbue/exec" + "?v=" + new Date().getTime();
+        
+            fetch(url)
+                .then(response => response.text())
+                .then(data => {
+                    var parts = data.split("|");
+                    if (parts.length >= 2) {
+                        document.getElementById('price').innerHTML = parts[0];
+                        document.getElementById('next-price').innerHTML = parts[1];
+                        
+                        var now = new Date();
+                        var m = now.getMinutes();
+                        var h = now.getHours();
+                        var timeString = (h < 10 ? '0' : '') + h + ":" + (m < 10 ? '0' : '') + m;
+                        document.getElementById('time').innerHTML = "Updated: " + timeString;
+                    }
+                })
+                .catch(err => {
+                    console.error("Fetch error:", err);
+                    document.getElementById('time').innerHTML = "Connection Error...";
+                });
         }
-
-        // Keep Wi-Fi alive by pinging Google 
+        
+        // Keep Wi-Fi alive
         setInterval(function() {
-            var ping = new XMLHttpRequest();
-            ping.open("GET", "https://www.google.com/generate_204", true);
-            ping.send();
+            fetch("https://www.google.com/generate_204").catch(() => {});
         }, 10000);
-
-        // Run immediately on load
+        
+        // Run immediately and then every 60 seconds
         updatePrice();
+        setInterval(updatePrice, 60000);
 
-        // NEW: Automatically run the update every 60,000 milliseconds (1 minute)
-        setInterval(updatePrice, 60000); 
     </script>
 </body>
 </html>
