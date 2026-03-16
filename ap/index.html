@@ -48,13 +48,13 @@
         }
 
         function updatePrice() {
-            document.getElementById('time').innerHTML = "Connecting to Wi-Fi...";
+            // document.getElementById('time').innerHTML = "Connecting to Wi-Fi...";
 
             setTimeout(function() {
                 var url = "https://script.google.com/macros/s/AKfycby4gf4zULR-cQzekmZpXoBs5txrVYr7TJIQWCcwfbwkVy1uqrpz1aniyvkweHTfRbue/exec?nocache=" + new Date().getTime();
                 var xhr = new XMLHttpRequest();
                 
-                document.getElementById('time').innerHTML = "Fetching Price...";
+                // document.getElementById('time').innerHTML = "Fetching Price...";
                 
                 xhr.open("GET", url, true);
                 xhr.timeout = 25000;
