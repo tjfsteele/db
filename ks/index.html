@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Cricket Scoreboard</title>
+    <title>Cricket Scoreboard (Kobo)</title>
     <style>
         /* CSS optimized for Kobo Touch e-ink display */
         body { 
@@ -21,6 +21,7 @@
         .label { font-size: 14px; font-weight: bold; text-transform: uppercase; display: block; margin-bottom: 2px; }
         .value { font-size: 38px; font-weight: bold; font-family: monospace; }
         .big-val { font-size: 55px; line-height: 1; }
+        .sub-val { font-size: 24px; font-weight: normal; }
         #time-status { font-size: 16px; margin-top: 15px; color: #666; font-style: italic; }
         #clock { font-size: 28px; font-weight: bold; }
     </style>
@@ -30,19 +31,27 @@
     <div id="jitter-wrapper">
         <div class="grid">
             <div class="row">
-                <div class="cell"><span class="label">Batter 1</span><span id="v-0" class="value">-</span></div>
+                <div class="cell">
+                    <span class="label">Batter 1</span>
+                    <span id="v-0" class="value">-</span> 
+                    <span class="sub-val">(<span id="v-2">0</span>)</span>
+                </div>
                 <div class="cell"><span id="clock">00:00</span></div>
-                <div class="cell"><span class="label">Batter 2</span><span id="v-1" class="value">-</span></div>
+                <div class="cell">
+                    <span class="label">Batter 2</span>
+                    <span id="v-1" class="value">-</span>
+                    <span class="sub-val">(<span id="v-3">0</span>)</span>
+                </div>
             </div>
             <div class="row">
-                <div class="cell"><span class="label">TOTAL</span><span id="v-4" class="value big-val">-</span></div>
                 <div class="cell"><span class="label">WKTS</span><span id="v-5" class="value big-val">-</span></div>
+                <div class="cell"><span class="label">TOTAL</span><span id="v-4" class="value big-val">-</span></div>
                 <div class="cell"><span class="label">OVERS</span><span id="v-6" class="value big-val">-</span></div>
             </div>
             <div class="row">
                 <div class="cell"><span class="label">EXTRAS</span><span id="v-7" class="value">-</span></div>
-                <div class="cell"><span class="label">LAST MAN</span><span id="v-8" class="value">-</span></div>
-                <div class="cell"><span class="label">LAST WKT</span><span id="v-9" class="value">-</span></div>
+                <div class="cell"><span class="label">LAST WKT</span><span id="v-8" class="value">-</span></div>
+                <div class="cell"><span class="label">LAST MAN</span><span id="v-9" class="value">-</span></div>
             </div>
             <div class="row">
                 <div class="cell"><span class="label">1st INNS</span><span id="v-10" class="value">-</span></div>
@@ -54,58 +63,39 @@
     </div>
 
     <script>
-        var LOCAL_URL = "http://192.168.137.1/"; 
-        var CLOUD_URL = "https://api.npoint.io/e5ab2c288d26e7ce23ca";
-        
-        var isUsingLocal = true; 
-        var isRetrying = false; 
+        var LOCAL_URL = "http://192.168.1.100/data.json"; 
+        var CLOUD_URL = "https://your-cloud-api.com/data.json";
+        var isUsingLocal = true;
         var pollTimer = null;
 
         function fetchData() {
-            // Clear any pending timer to avoid "double-polling"
-            if (pollTimer) clearTimeout(pollTimer);
-
-            var targetUrl = isUsingLocal ? LOCAL_URL : CLOUD_URL;
+            var url = isUsingLocal ? LOCAL_URL : CLOUD_URL;
             var x = new XMLHttpRequest();
-            
-            x.timeout = 3000; // 3 second timeout
-            var sep = targetUrl.indexOf('?') !== -1 ? "&" : "?";
-            x.open("GET", targetUrl + sep + "t=" + new Date().getTime(), true);
-            
+            x.open("GET", url + "?t=" + new Date().getTime(), true);
+            x.timeout = 5000;
+
             x.onreadystatechange = function() {
                 if (x.readyState === 4) {
-                    if (x.status >= 200 && x.status < 300) {
-                        isRetrying = false;
+                    if (x.status === 200) {
                         updateDisplay(x.responseText);
-                        updateStatus(isUsingLocal ? "Local Mode" : "Cloud Mode");
+                        updateStatus("Live");
                         scheduleNextUpdate();
                     } else {
-                        handleError();
+                        updateStatus("Offline (Retry)");
+                        isUsingLocal = !isUsingLocal;
+                        scheduleNextUpdate();
                     }
                 }
             };
-
-            x.onerror = function() { handleError(); };
-            x.ontimeout = function() { handleError(); };
+            x.onerror = function() {
+                updateStatus("Error");
+                isUsingLocal = !isUsingLocal;
+                scheduleNextUpdate();
+            };
             x.send();
         }
 
-        function handleError() {
-            if (isUsingLocal && !isRetrying) {
-                // Try switching to cloud once if local fails
-                isRetrying = true;
-                isUsingLocal = false; 
-                updateStatus("Local failed. Trying Cloud...");
-                fetchData(); 
-            } else {
-                // If cloud also fails, stay in cloud mode but wait longer to retry
-                updateStatus("Connection Error");
-                scheduleNextUpdate();
-            }
-        }
-
         function scheduleNextUpdate() {
-            // 1 second for Local, 30 seconds for Cloud
             var interval = isUsingLocal ? 1000 : 30000;
             pollTimer = setTimeout(fetchData, interval);
         }
@@ -113,7 +103,8 @@
         function updateDisplay(rawJson) {
             try {
                 var data = JSON.parse(rawJson);
-                var mapping = [0, 1, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+                // Included 2 and 3 for scores
+                var mapping = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
                 for (var i = 0; i < mapping.length; i++) {
                     var idx = mapping[i];
                     var element = document.getElementById('v-' + idx);
@@ -123,7 +114,7 @@
                     }
                 }
             } catch(e) {
-                updateStatus("JSON Parse Error");
+                updateStatus("JSON Error");
             }
         }
 
@@ -135,11 +126,8 @@
             document.getElementById('time-status').innerHTML = msg + " | " + timeStr;
         }
 
-        // Start the loop
         fetchData();
-
-        // Hard reload every 12 hours to prevent memory leaks/browser hangs
-        setTimeout(function() { location.reload(); }, 43200000);
+        setTimeout(function() { window.location.reload(true); }, 43200000);
     </script>
 </body>
 </html>
