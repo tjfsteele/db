@@ -2,9 +2,9 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Cricket Scoreboard (Kobo)</title>
+    <title>Kobo Scoreboard</title>
     <style>
-        /* CSS optimized for Kobo Touch e-ink display */
+        /* CSS optimized for Kobo e-ink */
         body { 
             background: white; color: black; font-family: sans-serif; 
             margin: 0; padding: 5px; text-align: center;
@@ -14,15 +14,12 @@
         #jitter-wrapper { position: relative; width: 100%; }
         .grid { display: table; width: 100%; border-collapse: collapse; table-layout: fixed; }
         .row { display: table-row; }
-        .cell { 
-            display: table-cell; border: 2px solid black; 
-            padding: 8px; vertical-align: middle; 
-        }
+        .cell { display: table-cell; border: 2px solid black; padding: 8px; vertical-align: middle; }
         .label { font-size: 14px; font-weight: bold; text-transform: uppercase; display: block; margin-bottom: 2px; }
         .value { font-size: 38px; font-weight: bold; font-family: monospace; }
         .big-val { font-size: 55px; line-height: 1; }
         .sub-val { font-size: 24px; font-weight: normal; }
-        #time-status { font-size: 16px; margin-top: 15px; color: #666; font-style: italic; }
+        #time-status { font-size: 16px; margin-top: 15px; color: #666; }
         #clock { font-size: 28px; font-weight: bold; }
     </style>
 </head>
@@ -65,45 +62,53 @@
     <script>
         var LOCAL_URL = "http://192.168.137.1/"; 
         var CLOUD_URL = "https://api.npoint.io/e5ab2c288d26e7ce23ca";
-        var isUsingLocal = true;
-        var pollTimer = null;
-
+        
+        var isProtocolSecure = window.location.protocol === 'https:';
+        var isUsingLocal = !isProtocolSecure; 
+        
         function fetchData() {
-            var url = isUsingLocal ? LOCAL_URL : CLOUD_URL;
+            // If on HTTPS, browser will block local HTTP, so we must use Cloud.
+            var url = (isProtocolSecure) ? CLOUD_URL : (isUsingLocal ? LOCAL_URL : CLOUD_URL);
+            
             var x = new XMLHttpRequest();
             x.open("GET", url + "?t=" + new Date().getTime(), true);
-            x.timeout = 5000;
+            x.timeout = 4000;
 
             x.onreadystatechange = function() {
                 if (x.readyState === 4) {
                     if (x.status === 200) {
                         updateDisplay(x.responseText);
-                        updateStatus("Live");
+                        updateStatus(isUsingLocal ? "LIVE: LOCAL" : "LIVE: CLOUD");
                         scheduleNextUpdate();
                     } else {
-                        updateStatus("Offline (Retry)");
-                        isUsingLocal = !isUsingLocal;
-                        scheduleNextUpdate();
+                        // If local fails, try cloud. If cloud fails, wait for retry.
+                        if (isUsingLocal) {
+                            isUsingLocal = false;
+                            fetchData();
+                        } else {
+                            updateStatus("RETRYING...");
+                            scheduleNextUpdate();
+                        }
                     }
                 }
             };
             x.onerror = function() {
-                updateStatus("Error");
-                isUsingLocal = !isUsingLocal;
+                isUsingLocal = false;
+                updateStatus("CONN ERROR");
                 scheduleNextUpdate();
             };
             x.send();
         }
 
         function scheduleNextUpdate() {
-            var interval = isUsingLocal ? 1000 : 30000;
-            pollTimer = setTimeout(fetchData, interval);
+            var interval = isUsingLocal ? 1000 : 20000;
+            setTimeout(fetchData, interval);
         }
 
         function updateDisplay(rawJson) {
             try {
                 var data = JSON.parse(rawJson);
-                // Included 2 and 3 for scores
+                // All indices including batter scores 2 & 3
                 var mapping = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
                 for (var i = 0; i < mapping.length; i++) {
                     var idx = mapping[i];
@@ -113,8 +118,8 @@
                         element.innerHTML = (val !== undefined && val !== null) ? val : "-";
                     }
                 }
-            } catch(e) {
-                updateStatus("JSON Error");
+            } catch(e) { 
+                updateStatus("DATA ERROR"); 
             }
         }
 
@@ -123,10 +128,11 @@
             var h = now.getHours(), m = now.getMinutes();
             var timeStr = (h < 10 ? '0' : '') + h + ":" + (m < 10 ? '0' : '') + m;
             document.getElementById('clock').innerHTML = timeStr;
-            document.getElementById('time-status').innerHTML = msg + " | " + timeStr;
+            document.getElementById('time-status').innerHTML = msg + " | " + timeStr + (isProtocolSecure ? " (SSL)" : "");
         }
 
         fetchData();
+        // Refresh 12hr
         setTimeout(function() { window.location.reload(true); }, 43200000);
     </script>
 </body>
