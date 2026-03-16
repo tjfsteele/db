@@ -46,7 +46,8 @@
             </div>
             <div class="row">
                 <div class="cell"><span class="label">1st INNS</span><span id="v-10" class="value">-</span></div>
-                <div class="cell" colspan="2"><span class="label">TARGET</span><span id="v-11" class="value">-</span></div>
+                <div class="cell"><span class="label">TARGET</span><span id="v-11" class="value">-</span></div>
+                <div class="cell"><span class="label">OV REM</span><span id="v-12" class="value">-</span></div>
             </div>
         </div>
         <div id="time-status">Connecting...</div>
@@ -64,9 +65,7 @@
             var targetUrl = isUsingLocal ? LOCAL_URL : CLOUD_URL;
             var x = new XMLHttpRequest();
             
-            // Short timeout so it falls back to cloud quickly if local is missing
-            x.timeout = 1000; 
-            
+            x.timeout = 5000; 
             var sep = targetUrl.indexOf('?') !== -1 ? "&" : "?";
             x.open("GET", targetUrl + sep + "t=" + new Date().getTime(), true);
             
@@ -76,7 +75,6 @@
                         updateDisplay(x.responseText);
                         updateStatus(isUsingLocal ? "Local Mode" : "Cloud Mode");
                     } else if (x.status !== 0 || x.readyState === 4) {
-                        // status 0 usually means a blocked/failed connection
                         handleError();
                     }
                 }
@@ -94,8 +92,6 @@
                 isRetrying = true;
                 isUsingLocal = false; 
                 updateStatus("Local failed. Trying Cloud...");
-                
-                // Small delay ensures the previous failed request is fully cleared
                 setTimeout(fetchData, 500); 
             } else {
                 updateStatus("Network Error (Cloud also failed)");
@@ -105,8 +101,8 @@
         function updateDisplay(rawJson) {
             try {
                 var data = JSON.parse(rawJson);
-                // Mapping IDs based on your specific index structure
-                var mapping = [0, 1, 4, 5, 6, 7, 8, 9, 10, 11];
+                // Added 12 to the mapping to support OV REM
+                var mapping = [0, 1, 4, 5, 6, 7, 8, 9, 10, 11, 12];
                 for (var i = 0; i < mapping.length; i++) {
                     var idx = mapping[i];
                     var element = document.getElementById('v-' + idx);
@@ -128,13 +124,8 @@
             document.getElementById('time-status').innerHTML = msg + " | " + timeStr;
         }
 
-        // Refresh every 60 seconds
         setInterval(fetchData, 60000); 
-        
-        // Start immediately
         fetchData();
-
-        // Hard reload every 12 hours for stability
         setTimeout(function() { location.reload(); }, 43200000);
     </script>
 </body>
