@@ -2,60 +2,65 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Agile Tracker Debug</title>
+    <meta http-equiv="refresh" content="60">
+    <title>Agile Tracker</title>
     <style>
-        body { background: #f0f0f0; font-family: sans-serif; padding: 20px; color: black; }
-        #display { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        #price { font-size: 80px; font-weight: bold; }
-        #debug { 
-            text-align: left; font-family: monospace; font-size: 12px; 
-            background: #333; color: #0f0; padding: 15px; margin-top: 20px; 
-            border-radius: 5px; overflow-x: auto; white-space: pre-wrap;
-            height: 200px;
+        body { 
+            background: white; color: black; font-family: sans-serif; 
+            text-align: center; margin: 0; padding: 0;
+            display: flex; flex-direction: column; justify-content: center; height: 100vh;
+            overflow: hidden;
         }
+        #slot-time { font-size: 30px; font-weight: normal; margin-bottom: 10px; }
+        #price { font-size: 150px; font-weight: bold; line-height: 0.8; }
+        #unit { font-size: 30px; margin-bottom: 30px; }
+        
+        #next-container { 
+            font-size: 32px; border-top: 5px solid #000; 
+            padding-top: 20px; width: 80%; margin: 0 auto;
+        }
+        
+        /* Debug hidden by default. Change 'none' to 'block' to see it again */
+        #debug { display: none; text-align: left; font-size: 10px; margin: 10px; white-space: pre-wrap; }
     </style>
 </head>
 <body>
 
-    <div id="display">
+    <div id="slot-time">--:-- - --:--</div>
+    
+    <div id="price-container">
         <div id="price">--.-</div>
-        <div style="font-size: 24px;">Next: <span id="next-price">--</span>p</div>
+        <div id="unit">p/kWh</div>
     </div>
 
-    <div id="debug">Console Log:</div>
+    <div id="next-container">
+        Next: <strong><span id="next-price">--</span>p</strong>
+    </div>
+
+    <div id="debug"></div>
 
     <script>
-        // REPLACE THIS WITH YOUR ACTUAL URL
         var SCRIPT_URL = "https://script.google.com/macros/s/AKfycby4gf4zULR-cQzekmZpXoBs5txrVYr7TJIQWCcwfbwkVy1uqrpz1aniyvkweHTfRbue/exec";
 
-        function log(msg) {
-            var div = document.getElementById('debug');
-            div.innerHTML += "\n> " + msg;
-            div.scrollTop = div.scrollHeight;
-            console.log(msg);
+        function formatTime(isoString) {
+            var d = new Date(isoString);
+            var h = d.getHours();
+            var m = d.getMinutes();
+            return (h < 10 ? '0' : '') + h + ":" + (m < 10 ? '0' : '') + m;
         }
 
-        // Global error handler to catch syntax errors or crashes
-        window.onerror = function(msg, url, line) {
-            log("CRITICAL ERROR: " + msg + " at line " + line);
-        };
-
         function updateUI() {
-            log("Checking local storage...");
             var now = new Date();
             var currentTime = now.getTime();
             var cached = localStorage.getItem('agile_data');
 
             if (!cached) {
-                log("Nothing in cache. Fetching...");
                 fetchData();
                 return;
             }
 
             try {
                 var schedule = JSON.parse(cached);
-                
-                // Sort to ensure we find the right 'next' slot
                 schedule.sort(function(a, b) {
                     return new Date(a.s).getTime() - new Date(b.s).getTime();
                 });
@@ -64,6 +69,7 @@
                 for (var i = 0; i < schedule.length; i++) {
                     var start = new Date(schedule[i].s).getTime();
                     var end = new Date(schedule[i].e).getTime();
+
                     if (currentTime >= start && currentTime < end) {
                         foundIdx = i;
                         break;
@@ -71,57 +77,40 @@
                 }
 
                 if (foundIdx !== -1) {
-                    var currentVal = schedule[foundIdx].v.toFixed(1);
-                    var nextVal = schedule[foundIdx+1] ? schedule[foundIdx+1].v.toFixed(1) : "??";
+                    var current = schedule[foundIdx];
+                    document.getElementById('price').innerHTML = current.v.toFixed(1);
+                    document.getElementById('slot-time').innerHTML = formatTime(current.s) + " - " + formatTime(current.e);
                     
-                    document.getElementById('price').innerHTML = currentVal;
-                    document.getElementById('next-price').innerHTML = nextVal;
-                    log("UI Updated: Current " + currentVal);
+                    if (schedule[foundIdx + 1]) {
+                        document.getElementById('next-price').innerHTML = schedule[foundIdx + 1].v.toFixed(1);
+                    }
+                    
+                    // Fetch fresh data if we're near the end of our list
+                    var lastSlot = new Date(schedule[schedule.length - 1].s).getTime();
+                    if (currentTime > (lastSlot - 7200000)) fetchData(); 
                 } else {
-                    log("Time " + now.toISOString() + " not found in data. Re-fetching...");
                     fetchData();
                 }
             } catch (e) {
-                log("Processing Error: " + e.message);
+                fetchData();
             }
         }
 
         function fetchData() {
-            log("Calling Google Script...");
-            
-            // Note: Kobo/Older browsers sometimes prefer this older XHR style
             var xhr = new XMLHttpRequest();
-            
-            // Google Apps Script requires following redirects. 
-            // Browsers do this automatically, but only if CORS is right.
-            xhr.open("GET", SCRIPT_URL, true);
-            
+            xhr.open("GET", SCRIPT_URL + "?t=" + new Date().getTime(), true);
             xhr.onreadystatechange = function () {
-                if (xhr.readyState == 4) {
-                    log("XHR Finished. Status: " + xhr.status);
-                    if (xhr.status == 200) {
-                        var text = xhr.responseText;
-                        if (text.indexOf('[') === 0) { // Check if it looks like JSON
-                            localStorage.setItem('agile_data', text);
-                            log("Success! Data saved.");
-                            updateUI();
-                        } else {
-                            log("Error: Received non-JSON response. (Is the script published as 'Anyone'?)");
-                        }
-                    } else {
-                        log("HTTP Error: " + xhr.status);
-                    }
+                if (xhr.readyState == 4 && xhr.status == 200) {
+                    try {
+                        JSON.parse(xhr.responseText);
+                        localStorage.setItem('agile_data', xhr.responseText);
+                        updateUI();
+                    } catch(e) {}
                 }
             };
-            
-            xhr.onerror = function() {
-                log("Network Error. Check if URL is correct and published to 'Anyone'.");
-            };
-            
             xhr.send();
         }
 
-        // Start
         updateUI();
     </script>
 </body>
