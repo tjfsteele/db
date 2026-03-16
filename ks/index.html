@@ -59,22 +59,27 @@
         
         var isUsingLocal = true; 
         var isRetrying = false; 
+        var pollTimer = null;
 
         function fetchData() {
-            isRetrying = false;
+            // Clear any pending timer to avoid "double-polling"
+            if (pollTimer) clearTimeout(pollTimer);
+
             var targetUrl = isUsingLocal ? LOCAL_URL : CLOUD_URL;
             var x = new XMLHttpRequest();
             
-            x.timeout = 5000; 
+            x.timeout = 3000; // 3 second timeout
             var sep = targetUrl.indexOf('?') !== -1 ? "&" : "?";
             x.open("GET", targetUrl + sep + "t=" + new Date().getTime(), true);
             
             x.onreadystatechange = function() {
                 if (x.readyState === 4) {
                     if (x.status >= 200 && x.status < 300) {
+                        isRetrying = false;
                         updateDisplay(x.responseText);
                         updateStatus(isUsingLocal ? "Local Mode" : "Cloud Mode");
-                    } else if (x.status !== 0 || x.readyState === 4) {
+                        scheduleNextUpdate();
+                    } else {
                         handleError();
                     }
                 }
@@ -86,22 +91,28 @@
         }
 
         function handleError() {
-            if (isRetrying) return; 
-
-            if (isUsingLocal) {
+            if (isUsingLocal && !isRetrying) {
+                // Try switching to cloud once if local fails
                 isRetrying = true;
                 isUsingLocal = false; 
                 updateStatus("Local failed. Trying Cloud...");
-                setTimeout(fetchData, 500); 
+                fetchData(); 
             } else {
-                updateStatus("Network Error (Cloud also failed)");
+                // If cloud also fails, stay in cloud mode but wait longer to retry
+                updateStatus("Connection Error");
+                scheduleNextUpdate();
             }
+        }
+
+        function scheduleNextUpdate() {
+            // 1 second for Local, 30 seconds for Cloud
+            var interval = isUsingLocal ? 1000 : 30000;
+            pollTimer = setTimeout(fetchData, interval);
         }
 
         function updateDisplay(rawJson) {
             try {
                 var data = JSON.parse(rawJson);
-                // Added 12 to the mapping to support OV REM
                 var mapping = [0, 1, 4, 5, 6, 7, 8, 9, 10, 11, 12];
                 for (var i = 0; i < mapping.length; i++) {
                     var idx = mapping[i];
@@ -124,8 +135,10 @@
             document.getElementById('time-status').innerHTML = msg + " | " + timeStr;
         }
 
-        setInterval(fetchData, 60000); 
+        // Start the loop
         fetchData();
+
+        // Hard reload every 12 hours to prevent memory leaks/browser hangs
         setTimeout(function() { location.reload(); }, 43200000);
     </script>
 </body>
