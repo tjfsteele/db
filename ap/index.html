@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="refresh" content="1800">
+    <meta http-equiv="refresh" content="60"> 
     <style>
         body { 
             background: white; color: black; font-family: sans-serif; 
@@ -52,21 +52,27 @@
                     
                     var now = new Date();
                     var m = now.getMinutes();
-                    document.getElementById('time').innerHTML = "Updated: " + now.getHours() + ":" + (m < 10 ? '0' : '') + m;
+                    var h = now.getHours();
+                    // Added a leading zero for minutes and hours for cleaner look
+                    var timeString = (h < 10 ? '0' : '') + h + ":" + (m < 10 ? '0' : '') + m;
+                    document.getElementById('time').innerHTML = "Updated: " + timeString;
                 }
             };
             xhr.send();
         }
 
-        // Keep Wi-Fi alive by pinging Google every 4 minutes
+        // Keep Wi-Fi alive by pinging Google 
         setInterval(function() {
             var ping = new XMLHttpRequest();
             ping.open("GET", "https://www.google.com/generate_204", true);
             ping.send();
-        }, 1000);
+        }, 10000);
 
         // Run immediately on load
         updatePrice();
+
+        // NEW: Automatically run the update every 60,000 milliseconds (1 minute)
+        setInterval(updatePrice, 60000); 
     </script>
 </body>
 </html>
