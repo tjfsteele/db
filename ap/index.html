@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="refresh" content="60"> <title>Agile Tracker</title>
+    <meta http-equiv="refresh" content="60">
+    <title>Agile Tracker</title>
     <style>
         body { 
             background: white; color: black; font-family: sans-serif; 
@@ -10,15 +11,14 @@
             display: flex; flex-direction: column; justify-content: center; height: 100vh;
             overflow: hidden;
         }
-        #price-container { margin-bottom: 10px; }
         #price { font-size: 140px; font-weight: bold; display: block; line-height: 0.9; }
         #unit { font-size: 30px; display: block; margin-top: 5px; }
         #next-container { 
             font-size: 32px; color: #000; margin-top: 20px; 
             border-top: 4px solid #000; padding-top: 15px; 
-            display: inline-block; width: 70%;
+            display: inline-block; width: 75%;
         }
-        #time { font-size: 18px; color: #444; margin-top: 30px; }
+        #time { font-size: 18px; color: #666; margin-top: 30px; }
     </style>
 </head>
 <body>
@@ -35,7 +35,7 @@
     <div id="time">Loading...</div>
 
     <script>
-        var SCRIPT_URL = "https://script.google.com/macros/s/AKfycby4gf4zULR-cQzekmZpXoBs5txrVYr7TJIQWCcwfbwkVy1uqrpz1aniyvkweHTfRbue/exec";
+        var SCRIPT_URL = "YOUR_GOOGLE_SCRIPT_URL_HERE";
 
         function updateUI() {
             var now = new Date();
@@ -45,26 +45,40 @@
 
             if (cached) {
                 var schedule = JSON.parse(cached);
-                var found = false;
+                
+                // 1. Sort data oldest to newest (Octopus often sends newest first)
+                schedule.sort(function(a, b) {
+                    return new Date(a.s).getTime() - new Date(b.s).getTime();
+                });
 
+                var currentPrice = "--";
+                var nextPrice = "--";
+                var foundIdx = -1;
+
+                // 2. Find current slot
                 for (var i = 0; i < schedule.length; i++) {
                     var start = new Date(schedule[i].s).getTime();
                     var end = new Date(schedule[i].e).getTime();
 
                     if (currentTime >= start && currentTime < end) {
-                        document.getElementById('price').innerHTML = schedule[i].v.toFixed(1);
-                        
-                        var nextVal = (schedule[i+1]) ? schedule[i+1].v.toFixed(1) : "??";
-                        document.getElementById('next-price').innerHTML = nextVal;
-                        
-                        document.getElementById('time').innerHTML = "Sync: " + lastSync;
-                        found = true;
+                        currentPrice = schedule[i].v.toFixed(1);
+                        foundIdx = i;
                         break;
                     }
                 }
 
-                // If we have data but it's expired (e.g. past midnight), or we're in the last 2 slots
-                if (!found || (currentTime > new Date(schedule[schedule.length-2].s).getTime())) {
+                // 3. Update Display
+                if (foundIdx !== -1) {
+                    document.getElementById('price').innerHTML = currentPrice;
+                    if (schedule[foundIdx + 1]) {
+                        document.getElementById('next-price').innerHTML = schedule[foundIdx + 1].v.toFixed(1);
+                    }
+                    document.getElementById('time').innerHTML = "Sync: " + lastSync;
+                }
+
+                // 4. Check if we need more data (if we are near the end of our list)
+                var lastSlotStart = new Date(schedule[schedule.length - 1].s).getTime();
+                if (foundIdx === -1 || currentTime > (lastSlotStart - 3600000)) {
                     fetchData();
                 }
             } else {
@@ -74,32 +88,26 @@
 
         function fetchData() {
             var xhr = new XMLHttpRequest();
-            // Add a cache-buster to the URL
             xhr.open("GET", SCRIPT_URL + "?nocache=" + new Date().getTime(), true);
-            xhr.timeout = 30000; 
-
             xhr.onreadystatechange = function () {
                 if (xhr.readyState == 4 && xhr.status == 200) {
                     try {
-                        // Validate it's actually JSON before saving
-                        var testJson = JSON.parse(xhr.responseText);
+                        JSON.parse(xhr.responseText); // Validate JSON
                         localStorage.setItem('agile_data', xhr.responseText);
                         
                         var d = new Date();
-                        var ts = d.getHours() + ":" + (d.getMinutes() < 10 ? '0' : '') + d.getMinutes();
+                        var ts = (d.getHours() < 10 ? '0' : '') + d.getHours() + ":" + (d.getMinutes() < 10 ? '0' : '') + d.getMinutes();
                         localStorage.setItem('last_sync', ts);
                         
                         updateUI();
                     } catch(e) {
-                        document.getElementById('time').innerHTML = "Sync Error (JSON)";
+                        document.getElementById('time').innerHTML = "JSON Error";
                     }
                 }
             };
-            xhr.onerror = function() { document.getElementById('time').innerHTML = "Sync Failed (Network)"; };
             xhr.send();
         }
 
-        // Run immediately
         updateUI();
     </script>
 </body>
