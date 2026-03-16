@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Live Cricket - High Speed</title>
+    <title>Cricket Scoreboard - High Speed</title>
     <style>
         body { 
             background: white; color: black; font-family: sans-serif; 
@@ -10,86 +10,117 @@
             display: flex; flex-direction: column; justify-content: center; height: 100vh;
             overflow: hidden;
         }
+        #jitter-wrapper { position: relative; width: 100%; }
         .grid { display: table; width: 100%; border-collapse: collapse; table-layout: fixed; }
         .row { display: table-row; }
-        .cell { display: table-cell; border: 2px solid black; padding: 8px; vertical-align: middle; }
-        .label { font-size: 14px; font-weight: bold; text-transform: uppercase; display: block; }
+        .cell { 
+            display: table-cell; border: 2px solid black; 
+            padding: 8px; vertical-align: middle; 
+        }
+        .label { font-size: 14px; font-weight: bold; text-transform: uppercase; display: block; margin-bottom: 2px; }
         .value { font-size: 38px; font-weight: bold; font-family: monospace; }
         .big-val { font-size: 55px; line-height: 1; }
-        #time-status { font-size: 16px; margin-top: 15px; color: #666; }
+        #time-status { font-size: 16px; margin-top: 15px; color: #666; font-style: italic; }
         #clock { font-size: 28px; font-weight: bold; }
     </style>
 </head>
 <body>
 
-    <div id="grid-container">
+    <div id="jitter-wrapper">
         <div class="grid">
             <div class="row">
                 <div class="cell"><span class="label">Batter 1</span><span id="v-0" class="value">0</span></div>
                 <div class="cell"><span id="clock">00:00</span></div>
                 <div class="cell"><span class="label">Batter 2</span><span id="v-1" class="value">0</span></div>
             </div>
+
             <div class="row">
                 <div class="cell"><span class="label">TOTAL</span><span id="v-4" class="value big-val">0</span></div>
                 <div class="cell"><span class="label">WKTS</span><span id="v-5" class="value big-val">0</span></div>
                 <div class="cell"><span class="label">OVERS</span><span id="v-6" class="value big-val">0</span></div>
             </div>
+
+            <div class="row">
+                <div class="cell"><span class="label">EXTRAS</span><span id="v-7" class="value">0</span></div>
+                <div class="cell"><span class="label">LAST MAN</span><span id="v-8" class="value">0</span></div>
+                <div class="cell"><span class="label">LAST WKT</span><span id="v-9" class="value">0</span></div>
             </div>
+
+            <div class="row">
+                <div class="cell"><span class="label">1st INNS</span><span id="v-10" class="value">0</span></div>
+                <div class="cell"><span class="label">TO WIN</span><span id="v-11" class="value">0</span></div>
+                <div class="cell"><span class="label">OV REM</span><span id="v-12" class="value">0</span></div>
+            </div>
+        </div>
+
+        <div id="time-status">Initializing...</div>
     </div>
-    <div id="time-status">Initializing Live Stream...</div>
 
     <script>
-        var PROXY_URL = "https://script.google.com/macros/s/AKfycby4gf4zULR-cQzekmZpXoBs5txrVYr7TJIQWCcwfbwkVy1uqrpz1aniyvkweHTfRbue/exec?type=score";
-        var lastDataString = ""; 
+        var PROXY_URL = "https://script.google.com/macros/s/AKfycby4gf4zULR-cQzekmZpXoBs5txrVYr7TJIQWCcwfbwkVy1uqrpz1aniyvkweHTfRbue/exec?type=score"; 
+        var lastDataString = "";
 
         function fetchData() {
             var xhr = new XMLHttpRequest();
             xhr.open("GET", PROXY_URL + "&cb=" + new Date().getTime(), true);
-            xhr.timeout = 10000;
+            xhr.timeout = 15000;
 
             xhr.onreadystatechange = function () {
-                if (xhr.readyState == 4 && xhr.status == 200) {
-                    // Only update the DOM if the raw data string is different from last time
-                    if (xhr.responseText !== lastDataString) {
-                        updateDisplay(xhr.responseText);
-                        lastDataString = xhr.responseText;
+                if (xhr.readyState == 4) {
+                    if (xhr.status == 200) {
+                        // Only redraw if the data actually changed
+                        if (xhr.responseText !== lastDataString) {
+                            updateDisplay(xhr.responseText);
+                            lastDataString = xhr.responseText;
+                        }
+                        updateStatus("Live");
+                    } else {
+                        updateStatus("Error: " + xhr.status);
                     }
-                    updateTimestamp("Live");
                 }
             };
+            xhr.onerror = function() { updateStatus("Network Error"); };
             xhr.send();
         }
 
         function updateDisplay(rawJson) {
             try {
                 var data = JSON.parse(rawJson);
+                // Indices from your original list
                 var mapping = [0, 1, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+                
                 for (var i = 0; i < mapping.length; i++) {
                     var idx = mapping[i];
-                    var el = document.getElementById('v-' + idx);
-                    if (el && el.innerHTML != data[idx]) {
-                        el.innerHTML = data[idx];
+                    var element = document.getElementById('v-' + idx);
+                    if (element) {
+                        // Use "0" or "-" if the data point is missing/null
+                        var val = (data[idx] !== undefined && data[idx] !== null) ? data[idx] : "-";
+                        element.innerHTML = val;
                     }
                 }
-            } catch(e) {}
+            } catch(e) {
+                console.log("Parse error");
+                updateStatus("Data Sync Error");
+            }
         }
 
-        function updateTimestamp(msg) {
+        function updateStatus(msg) {
             var now = new Date();
-            var h = now.getHours(), m = now.getMinutes(), s = now.getSeconds();
-            document.getElementById('time-status').innerHTML = msg + ": " + h + ":" + (m<10?'0':'')+m + ":" + (s<10?'0':'')+s;
-            document.getElementById('clock').innerHTML = h + ":" + (m<10?'0':'')+m;
+            var h = now.getHours(), m = now.getMinutes();
+            var timeStr = (h<10?'0':'')+h + ":" + (m<10?'0':'')+m;
+            document.getElementById('clock').innerHTML = timeStr;
+            document.getElementById('time-status').innerHTML = msg + " @ " + timeStr;
         }
 
-        // 1. Keep Wi-Fi awake by "pinging" every 10 seconds
+        // 1. Keep Wi-Fi active (Mains powered mode)
         setInterval(function() {
             var ping = new XMLHttpRequest();
             ping.open("GET", "https://www.google.com/generate_204", true);
             ping.send();
-        }, 10000);
+        }, 15000);
 
-        // 2. Fetch Score every 15 seconds
-        setInterval(fetchData, 15000);
+        // 2. Refresh scores every 20 seconds (Good balance for Cricket)
+        setInterval(fetchData, 20000);
 
         // Initial run
         fetchData();
