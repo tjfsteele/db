@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Cricket Scoreboard - Kobo Edition</title>
-    <meta http-equiv="refresh" content="300">
+    <meta http-equiv="refresh" content="60">
     <style>
         body { 
             background: white; color: black; font-family: sans-serif; 
@@ -13,15 +13,13 @@
         }
         #jitter-wrapper { position: relative; width: 100%; }
         
-        /* Layout Grid using Table for old browser compatibility */
         .grid { display: table; width: 100%; border-collapse: collapse; table-layout: fixed; }
         .row { display: table-row; }
         .cell { 
-            display: table-cell; border: 1px solid black; 
+            display: table-cell; border: 2px solid black; 
             padding: 8px; vertical-align: middle; 
         }
         
-        /* Labels and Values */
         .label { font-size: 14px; font-weight: bold; text-transform: uppercase; display: block; margin-bottom: 2px; }
         .value { font-size: 38px; font-weight: bold; font-family: monospace; }
         .big-val { font-size: 55px; line-height: 1; }
@@ -63,64 +61,71 @@
     </div>
 
     <script>
-        // Update this URL with your Google Script URL + ?type=score
         var PROXY_URL = "https://script.google.com/macros/s/AKfycby4gf4zULR-cQzekmZpXoBs5txrVYr7TJIQWCcwfbwkVy1uqrpz1aniyvkweHTfRbue/exec?type=score"; 
 
         function fetchData() {
-            // Apply Jitter to prevent screen ghosting
-            var wrapper = document.getElementById('jitter-wrapper');
-            var randomX = Math.floor(Math.random() * 11) - 5; // -5 to +5px
-            var randomY = Math.floor(Math.random() * 11) - 5;
-            wrapper.style.transform = "translate(" + randomX + "px," + randomY + "px)";
+            document.getElementById('time-status').innerHTML = "Waking up Wi-Fi...";
 
-            var xhr = new XMLHttpRequest();
-            xhr.open("GET", PROXY_URL + "&cb=" + new Date().getTime(), true);
-            xhr.onreadystatechange = function () {
-                if (xhr.readyState == 4 && xhr.status == 200) {
-                    try {
-                        var data = JSON.parse(xhr.responseText);
-                        // All indices from your original list
-                        var mapping = [0, 1, 4, 5, 6, 7, 8, 9, 10, 11, 12];
-                        for (var i = 0; i < mapping.length; i++) {
-                            var idx = mapping[i];
-                            var element = document.getElementById('v-' + idx);
-                            if (element) {
-                                element.innerHTML = (data[idx] !== undefined && data[idx] !== null) ? data[idx] : "";
+            // Delay fetch by 5 seconds to allow Kobo Wi-Fi to stabilize
+            setTimeout(function() {
+                // Jitter to prevent screen burn
+                var wrapper = document.getElementById('jitter-wrapper');
+                var randomX = Math.floor(Math.random() * 11) - 5; 
+                var randomY = Math.floor(Math.random() * 11) - 5;
+                wrapper.style.transform = "translate(" + randomX + "px," + randomY + "px)";
+
+                var xhr = new XMLHttpRequest();
+                // Added cache-buster to the URL
+                xhr.open("GET", PROXY_URL + "&cb=" + new Date().getTime(), true);
+                xhr.timeout = 20000;
+
+                xhr.onreadystatechange = function () {
+                    if (xhr.readyState == 4) {
+                        if (xhr.status == 200) {
+                            try {
+                                var data = JSON.parse(xhr.responseText);
+                                var mapping = [0, 1, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+                                for (var i = 0; i < mapping.length; i++) {
+                                    var idx = mapping[i];
+                                    var element = document.getElementById('v-' + idx);
+                                    if (element) {
+                                        element.innerHTML = (data[idx] !== undefined && data[idx] !== null) ? data[idx] : "0";
+                                    }
+                                }
+                                var now = new Date();
+                                var h = now.getHours();
+                                var m = now.getMinutes();
+                                document.getElementById('time-status').innerHTML = "Last Update: " + (h<10?'0':'')+h + ":" + (m < 10 ? '0' : '') + m;
+                            } catch(e) {
+                                document.getElementById('time-status').innerHTML = "JSON Parse Error";
                             }
+                        } else {
+                            document.getElementById('time-status').innerHTML = "Error: Status " + xhr.status;
                         }
-                        var now = new Date();
-                        var m = now.getMinutes();
-                        document.getElementById('time-status').innerHTML = "Last Update: " + now.getHours() + ":" + (m < 10 ? '0' : '') + m;
-                    } catch(e) {
-                        document.getElementById('time-status').innerHTML = "Data Error";
                     }
-                }
-            };
-            xhr.send();
+                };
+                
+                xhr.onerror = function() {
+                    document.getElementById('time-status').innerHTML = "Network Error - Retrying...";
+                };
+
+                xhr.send();
+            }, 5000); 
         }
 
         function updateClock() {
             var now = new Date();
             var h = now.getHours();
             var m = now.getMinutes();
-            document.getElementById('clock').innerHTML = h + ":" + (m < 10 ? '0' : '') + m;
+            document.getElementById('clock').innerHTML = (h<10?'0':'')+h + ":" + (m < 10 ? '0' : '') + m;
         }
 
-        // Keep Wi-Fi alive (Heartbeat) every 3 minutes
-        setInterval(function() {
-            var ping = new XMLHttpRequest();
-            ping.open("GET", "https://www.google.com/generate_204", true);
-            ping.send();
-        }, 180000);
-
-        // Update score every 30 seconds
-        setInterval(fetchData, 30000);
-        // Update clock every 30 seconds
-        setInterval(updateClock, 30000);
-
-        // Initial run
-        fetchData();
+        // Run immediately on page load
         updateClock();
+        fetchData();
+
+        // Note: We don't need setInterval here because the Meta Refresh 
+        // at the top handles the 60-second loop more reliably for Kobo.
     </script>
 </body>
 </html>
