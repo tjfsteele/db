@@ -2,9 +2,9 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Kobo Scoreboard</title>
+    <title>Cricket Scoreboard (Kobo)</title>
     <style>
-        /* CSS optimized for Kobo e-ink */
+        /* CSS optimized for Kobo Touch e-ink display */
         body { 
             background: white; color: black; font-family: sans-serif; 
             margin: 0; padding: 5px; text-align: center;
@@ -14,12 +14,15 @@
         #jitter-wrapper { position: relative; width: 100%; }
         .grid { display: table; width: 100%; border-collapse: collapse; table-layout: fixed; }
         .row { display: table-row; }
-        .cell { display: table-cell; border: 2px solid black; padding: 8px; vertical-align: middle; }
+        .cell { 
+            display: table-cell; border: 2px solid black; 
+            padding: 8px; vertical-align: middle; 
+        }
         .label { font-size: 14px; font-weight: bold; text-transform: uppercase; display: block; margin-bottom: 2px; }
         .value { font-size: 38px; font-weight: bold; font-family: monospace; }
         .big-val { font-size: 55px; line-height: 1; }
         .sub-val { font-size: 24px; font-weight: normal; }
-        #time-status { font-size: 16px; margin-top: 15px; color: #666; }
+        #time-status { font-size: 16px; margin-top: 15px; color: #666; font-style: italic; }
         #clock { font-size: 28px; font-weight: bold; }
     </style>
 </head>
@@ -60,19 +63,26 @@
     </div>
 
     <script>
+        // URLs - FIXED
         var LOCAL_URL = "http://192.168.137.1/"; 
         var CLOUD_URL = "https://api.npoint.io/e5ab2c288d26e7ce23ca";
         
+        // Initial state logic
         var isProtocolSecure = window.location.protocol === 'https:';
         var isUsingLocal = !isProtocolSecure; 
         
         function fetchData() {
-            // If on HTTPS, browser will block local HTTP, so we must use Cloud.
-            var url = (isProtocolSecure) ? CLOUD_URL : (isUsingLocal ? LOCAL_URL : CLOUD_URL);
-            
+            // Mixed Content Protection: If page is HTTPS, browser will kill local HTTP. 
+            // We bypass the crash by forcing Cloud in that scenario.
+            if (isProtocolSecure) {
+                isUsingLocal = false;
+            }
+
+            var url = isUsingLocal ? LOCAL_URL : CLOUD_URL;
             var x = new XMLHttpRequest();
+            
             x.open("GET", url + "?t=" + new Date().getTime(), true);
-            x.timeout = 4000;
+            x.timeout = 3000; // Fast timeout to trigger fallback quickly
 
             x.onreadystatechange = function() {
                 if (x.readyState === 4) {
@@ -81,26 +91,29 @@
                         updateStatus(isUsingLocal ? "LIVE: LOCAL" : "LIVE: CLOUD");
                         scheduleNextUpdate();
                     } else {
-                        // If local fails, try cloud. If cloud fails, wait for retry.
-                        if (isUsingLocal) {
-                            isUsingLocal = false;
-                            fetchData();
-                        } else {
-                            updateStatus("RETRYING...");
-                            scheduleNextUpdate();
-                        }
+                        handleFailure();
                     }
                 }
             };
-            x.onerror = function() {
-                isUsingLocal = false;
-                updateStatus("CONN ERROR");
-                scheduleNextUpdate();
-            };
+
+            x.onerror = function() { handleFailure(); };
+            x.ontimeout = function() { handleFailure(); };
             x.send();
         }
 
+        function handleFailure() {
+            if (isUsingLocal) {
+                // If Local failed, immediately switch to Cloud and try again
+                isUsingLocal = false;
+                fetchData();
+            } else {
+                updateStatus("RETRYING...");
+                scheduleNextUpdate();
+            }
+        }
+
         function scheduleNextUpdate() {
+            // 1s polling for local, 20s for cloud
             var interval = isUsingLocal ? 1000 : 20000;
             setTimeout(fetchData, interval);
         }
@@ -108,7 +121,7 @@
         function updateDisplay(rawJson) {
             try {
                 var data = JSON.parse(rawJson);
-                // All indices including batter scores 2 & 3
+                // Mapping all indices including batter runs (2,3)
                 var mapping = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
                 for (var i = 0; i < mapping.length; i++) {
                     var idx = mapping[i];
@@ -118,8 +131,8 @@
                         element.innerHTML = (val !== undefined && val !== null) ? val : "-";
                     }
                 }
-            } catch(e) { 
-                updateStatus("DATA ERROR"); 
+            } catch(e) {
+                updateStatus("DATA ERROR");
             }
         }
 
@@ -131,8 +144,10 @@
             document.getElementById('time-status').innerHTML = msg + " | " + timeStr + (isProtocolSecure ? " (SSL)" : "");
         }
 
+        // Initialize
         fetchData();
-        // Refresh 12hr
+
+        // Refresh page every 12 hours
         setTimeout(function() { window.location.reload(true); }, 43200000);
     </script>
 </body>
