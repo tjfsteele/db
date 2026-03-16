@@ -2,8 +2,7 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Cricket Scoreboard - Kobo Edition</title>
-    <meta http-equiv="refresh" content="60">
+    <title>Live Cricket - High Speed</title>
     <style>
         body { 
             background: white; color: black; font-family: sans-serif; 
@@ -11,145 +10,88 @@
             display: flex; flex-direction: column; justify-content: center; height: 100vh;
             overflow: hidden;
         }
-        #jitter-wrapper { position: relative; width: 100%; }
-        
         .grid { display: table; width: 100%; border-collapse: collapse; table-layout: fixed; }
         .row { display: table-row; }
-        .cell { 
-            display: table-cell; border: 2px solid black; 
-            padding: 8px; vertical-align: middle; 
-        }
-        
-        .label { font-size: 14px; font-weight: bold; text-transform: uppercase; display: block; margin-bottom: 2px; }
+        .cell { display: table-cell; border: 2px solid black; padding: 8px; vertical-align: middle; }
+        .label { font-size: 14px; font-weight: bold; text-transform: uppercase; display: block; }
         .value { font-size: 38px; font-weight: bold; font-family: monospace; }
         .big-val { font-size: 55px; line-height: 1; }
-        
-        #time-status { font-size: 16px; margin-top: 15px; color: #666; font-style: italic; }
+        #time-status { font-size: 16px; margin-top: 15px; color: #666; }
         #clock { font-size: 28px; font-weight: bold; }
     </style>
 </head>
 <body>
 
-    <div id="jitter-wrapper">
+    <div id="grid-container">
         <div class="grid">
             <div class="row">
                 <div class="cell"><span class="label">Batter 1</span><span id="v-0" class="value">0</span></div>
                 <div class="cell"><span id="clock">00:00</span></div>
                 <div class="cell"><span class="label">Batter 2</span><span id="v-1" class="value">0</span></div>
             </div>
-
             <div class="row">
                 <div class="cell"><span class="label">TOTAL</span><span id="v-4" class="value big-val">0</span></div>
                 <div class="cell"><span class="label">WKTS</span><span id="v-5" class="value big-val">0</span></div>
                 <div class="cell"><span class="label">OVERS</span><span id="v-6" class="value big-val">0</span></div>
             </div>
-
-            <div class="row">
-                <div class="cell"><span class="label">EXTRAS</span><span id="v-7" class="value">0</span></div>
-                <div class="cell"><span class="label">LAST MAN</span><span id="v-8" class="value">0</span></div>
-                <div class="cell"><span class="label">LAST WKT</span><span id="v-9" class="value">0</span></div>
             </div>
-
-            <div class="row">
-                <div class="cell"><span class="label">1st INNS</span><span id="v-10" class="value">0</span></div>
-                <div class="cell"><span class="label">TO WIN</span><span id="v-11" class="value">0</span></div>
-                <div class="cell"><span class="label">OV REM</span><span id="v-12" class="value">0</span></div>
-            </div>
-        </div>
-
-        <div id="time-status">Connecting...</div>
     </div>
+    <div id="time-status">Initializing Live Stream...</div>
 
     <script>
-        var PROXY_URL = "https://script.google.com/macros/s/AKfycby4gf4zULR-cQzekmZpXoBs5txrVYr7TJIQWCcwfbwkVy1uqrpz1aniyvkweHTfRbue/exec?type=score"; 
-        var mapping = [0, 1, 4, 5, 6, 7, 8, 9, 10, 11, 12];
-
-        // NEW: Pull scores from memory immediately
-        function loadStoredData() {
-            var savedData = localStorage.getItem('cricket_data');
-            var savedTime = localStorage.getItem('cricket_time');
-            
-            if (savedData) {
-                try {
-                    var data = JSON.parse(savedData);
-                    for (var i = 0; i < mapping.length; i++) {
-                        var idx = mapping[i];
-                        var element = document.getElementById('v-' + idx);
-                        if (element && data[idx] !== undefined) {
-                            element.innerHTML = data[idx];
-                        }
-                    }
-                } catch(e) { console.log("Memory clear"); }
-            }
-            if (savedTime) {
-                document.getElementById('time-status').innerHTML = "Last: " + savedTime + " (Syncing...)";
-            }
-        }
+        var PROXY_URL = "https://script.google.com/macros/s/AKfycby4gf4zULR-cQzekmZpXoBs5txrVYr7TJIQWCcwfbwkVy1uqrpz1aniyvkweHTfRbue/exec?type=score";
+        var lastDataString = ""; 
 
         function fetchData() {
-            document.getElementById('time-status').innerHTML = "Waking up Wi-Fi...";
+            var xhr = new XMLHttpRequest();
+            xhr.open("GET", PROXY_URL + "&cb=" + new Date().getTime(), true);
+            xhr.timeout = 10000;
 
-            setTimeout(function() {
-                var wrapper = document.getElementById('jitter-wrapper');
-                var randomX = Math.floor(Math.random() * 11) - 5; 
-                var randomY = Math.floor(Math.random() * 11) - 5;
-                wrapper.style.transform = "translate(" + randomX + "px," + randomY + "px)";
-
-                var xhr = new XMLHttpRequest();
-                xhr.open("GET", PROXY_URL + "&cb=" + new Date().getTime(), true);
-                xhr.timeout = 20000;
-
-                xhr.onreadystatechange = function () {
-                    if (xhr.readyState == 4) {
-                        if (xhr.status == 200) {
-                            try {
-                                var data = JSON.parse(xhr.responseText);
-                                for (var i = 0; i < mapping.length; i++) {
-                                    var idx = mapping[i];
-                                    var element = document.getElementById('v-' + idx);
-                                    if (element) {
-                                        element.innerHTML = (data[idx] !== undefined && data[idx] !== null) ? data[idx] : "0";
-                                    }
-                                }
-                                
-                                var now = new Date();
-                                var h = now.getHours();
-                                var m = now.getMinutes();
-                                var timeStr = (h < 10 ? '0' : '') + h + ":" + (m < 10 ? '0' : '') + m;
-                                document.getElementById('time-status').innerHTML = "Updated: " + timeStr;
-
-                                // SAVE to memory for next refresh
-                                localStorage.setItem('cricket_data', xhr.responseText);
-                                localStorage.setItem('cricket_time', timeStr);
-                            } catch(e) {
-                                document.getElementById('time-status').innerHTML = "JSON Parse Error";
-                            }
-                        } else {
-                            document.getElementById('time-status').innerHTML = "Error: Status " + xhr.status;
-                        }
+            xhr.onreadystatechange = function () {
+                if (xhr.readyState == 4 && xhr.status == 200) {
+                    // Only update the DOM if the raw data string is different from last time
+                    if (xhr.responseText !== lastDataString) {
+                        updateDisplay(xhr.responseText);
+                        lastDataString = xhr.responseText;
                     }
-                };
-                
-                xhr.onerror = function() {
-                    document.getElementById('time-status').innerHTML = "Network Error - Waiting...";
-                };
-
-                xhr.send();
-            }, 5000); 
+                    updateTimestamp("Live");
+                }
+            };
+            xhr.send();
         }
 
-        function updateClock() {
+        function updateDisplay(rawJson) {
+            try {
+                var data = JSON.parse(rawJson);
+                var mapping = [0, 1, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+                for (var i = 0; i < mapping.length; i++) {
+                    var idx = mapping[i];
+                    var el = document.getElementById('v-' + idx);
+                    if (el && el.innerHTML != data[idx]) {
+                        el.innerHTML = data[idx];
+                    }
+                }
+            } catch(e) {}
+        }
+
+        function updateTimestamp(msg) {
             var now = new Date();
-            var h = now.getHours();
-            var m = now.getMinutes();
-            document.getElementById('clock').innerHTML = (h < 10 ? '0' : '') + h + ":" + (m < 10 ? '0' : '') + m;
+            var h = now.getHours(), m = now.getMinutes(), s = now.getSeconds();
+            document.getElementById('time-status').innerHTML = msg + ": " + h + ":" + (m<10?'0':'')+m + ":" + (s<10?'0':'')+s;
+            document.getElementById('clock').innerHTML = h + ":" + (m<10?'0':'')+m;
         }
 
-        // 1. Initial view setup
-        updateClock();
-        loadStoredData();
+        // 1. Keep Wi-Fi awake by "pinging" every 10 seconds
+        setInterval(function() {
+            var ping = new XMLHttpRequest();
+            ping.open("GET", "https://www.google.com/generate_204", true);
+            ping.send();
+        }, 10000);
 
-        // 2. Start the fetch process
+        // 2. Fetch Score every 15 seconds
+        setInterval(fetchData, 15000);
+
+        // Initial run
         fetchData();
     </script>
 </body>
