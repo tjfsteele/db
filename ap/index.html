@@ -8,27 +8,24 @@
         body { 
             background: white; color: black; font-family: sans-serif; 
             text-align: center; margin: 0; padding: 0;
-            display: flex; flex-direction: column; justify-content: center; height: 100vh;
-            overflow: hidden;
+            display: flex; flex-direction: column; justify-content: space-between; height: 95vh;
         }
-        #slot-time { font-size: 30px; font-weight: normal; margin-bottom: 10px; }
-        #price { font-size: 150px; font-weight: bold; line-height: 0.8; }
-        #unit { font-size: 30px; margin-bottom: 30px; }
+        #slot-time { font-size: 28px; margin-top: 20px; }
+        #price { font-size: 140px; font-weight: bold; line-height: 0.8; }
+        #unit { font-size: 24px; margin-bottom: 10px; }
+        #next-container { font-size: 30px; border-top: 4px solid #000; padding-top: 10px; width: 85%; margin: 0 auto; }
         
-        #next-container { 
-            font-size: 32px; border-top: 5px solid #000; 
-            padding-top: 20px; width: 80%; margin: 0 auto;
-        }
-        
-        /* Debug hidden by default. Change 'none' to 'block' to see it again */
-        #debug { display: none; text-align: left; font-size: 10px; margin: 10px; white-space: pre-wrap; }
+        /* Graph Styles */
+        #graph-wrapper { height: 100px; width: 90%; margin: 10px auto; display: flex; align-items: flex-end; justify-content: space-between; border-bottom: 2px solid #000; padding-bottom: 2px; }
+        .bar { background: #000; width: 1.8%; min-height: 2px; }
+        .bar.current { background: #888; border: 1px dashed #000; } /* Highlight current slot */
     </style>
 </head>
 <body>
 
     <div id="slot-time">--:-- - --:--</div>
     
-    <div id="price-container">
+    <div>
         <div id="price">--.-</div>
         <div id="unit">p/kWh</div>
     </div>
@@ -37,40 +34,25 @@
         Next: <strong><span id="next-price">--</span>p</strong>
     </div>
 
-    <div id="debug"></div>
+    <div id="graph-wrapper"></div>
 
     <script>
         var SCRIPT_URL = "https://script.google.com/macros/s/AKfycby4gf4zULR-cQzekmZpXoBs5txrVYr7TJIQWCcwfbwkVy1uqrpz1aniyvkweHTfRbue/exec";
 
-        function formatTime(isoString) {
-            var d = new Date(isoString);
-            var h = d.getHours();
-            var m = d.getMinutes();
-            return (h < 10 ? '0' : '') + h + ":" + (m < 10 ? '0' : '') + m;
-        }
-
         function updateUI() {
-            var now = new Date();
-            var currentTime = now.getTime();
             var cached = localStorage.getItem('agile_data');
-
-            if (!cached) {
-                fetchData();
-                return;
-            }
+            if (!cached) { fetchData(); return; }
 
             try {
                 var schedule = JSON.parse(cached);
-                schedule.sort(function(a, b) {
-                    return new Date(a.s).getTime() - new Date(b.s).getTime();
-                });
+                schedule.sort(function(a, b) { return new Date(a.s).getTime() - new Date(b.s).getTime(); });
 
+                var now = new Date().getTime();
                 var foundIdx = -1;
-                for (var i = 0; i < schedule.length; i++) {
-                    var start = new Date(schedule[i].s).getTime();
-                    var end = new Date(schedule[i].e).getTime();
 
-                    if (currentTime >= start && currentTime < end) {
+                // Find current slot
+                for (var i = 0; i < schedule.length; i++) {
+                    if (now >= new Date(schedule[i].s).getTime() && now < new Date(schedule[i].e).getTime()) {
                         foundIdx = i;
                         break;
                     }
@@ -80,20 +62,47 @@
                     var current = schedule[foundIdx];
                     document.getElementById('price').innerHTML = current.v.toFixed(1);
                     document.getElementById('slot-time').innerHTML = formatTime(current.s) + " - " + formatTime(current.e);
+                    document.getElementById('next-price').innerHTML = schedule[foundIdx+1] ? schedule[foundIdx+1].v.toFixed(1) : "--";
                     
-                    if (schedule[foundIdx + 1]) {
-                        document.getElementById('next-price').innerHTML = schedule[foundIdx + 1].v.toFixed(1);
-                    }
-                    
-                    // Fetch fresh data if we're near the end of our list
-                    var lastSlot = new Date(schedule[schedule.length - 1].s).getTime();
-                    if (currentTime > (lastSlot - 7200000)) fetchData(); 
+                    drawGraph(schedule, foundIdx);
                 } else {
                     fetchData();
                 }
-            } catch (e) {
-                fetchData();
+            } catch (e) { fetchData(); }
+        }
+
+        function drawGraph(data, currentIdx) {
+            var wrapper = document.getElementById('graph-wrapper');
+            wrapper.innerHTML = ''; // Clear old graph
+            
+            // Show roughly 24 hours (48 slots)
+            // We'll show 12 slots before now and 36 slots after
+            var start = Math.max(0, currentIdx - 12);
+            var end = Math.min(data.length, start + 48);
+            
+            // Find max price for scaling the height
+            var maxPrice = 0;
+            for (var j = start; j < end; j++) { if (data[j].v > maxPrice) maxPrice = data[j].v; }
+            if (maxPrice < 30) maxPrice = 30; // Min scale
+
+            for (var i = start; i < end; i++) {
+                var bar = document.createElement('div');
+                bar.className = 'bar';
+                if (i === currentIdx) bar.className += ' current';
+                
+                // Scale height as a percentage of maxPrice
+                var height = (data[i].v / maxPrice) * 100;
+                bar.style.height = Math.max(height, 2) + '%';
+                
+                wrapper.appendChild(bar);
             }
+        }
+
+        function formatTime(iso) {
+            var d = new Date(iso);
+            var h = d.getHours();
+            var m = d.getMinutes();
+            return (h < 10 ? '0' : '') + h + ":" + (m < 10 ? '0' : '') + m;
         }
 
         function fetchData() {
@@ -101,11 +110,8 @@
             xhr.open("GET", SCRIPT_URL + "?t=" + new Date().getTime(), true);
             xhr.onreadystatechange = function () {
                 if (xhr.readyState == 4 && xhr.status == 200) {
-                    try {
-                        JSON.parse(xhr.responseText);
-                        localStorage.setItem('agile_data', xhr.responseText);
-                        updateUI();
-                    } catch(e) {}
+                    localStorage.setItem('agile_data', xhr.responseText);
+                    updateUI();
                 }
             };
             xhr.send();
