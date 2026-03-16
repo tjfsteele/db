@@ -8,71 +8,50 @@
             background: white; color: black; font-family: sans-serif; 
             text-align: center; margin: 0; padding: 0;
             display: flex; flex-direction: column; justify-content: center; height: 100vh;
-            overflow: hidden;
         }
-        #jitter-wrapper { position: relative; width: 100%; }
-        #price { font-size: 180px; font-weight: bold; display: block; line-height: 0.8; }
-        #unit { font-size: 40px; display: block; margin-top: 10px; }
-        #next-container { font-size: 38px; color: #333; margin-top: 50px; border-top: 3px solid #000; padding-top: 20px; display: inline-block; width: 80%; }
+        #price { font-size: 150px; font-weight: bold; display: block; }
+        #unit { font-size: 40px; display: block; }
+        #next-container { font-size: 38px; margin-top: 40px; border-top: 3px solid #000; padding-top: 20px; }
         #time { font-size: 20px; color: #777; margin-top: 30px; }
     </style>
 </head>
 <body>
 
-    <div id="jitter-wrapper">
-        <div id="price-container">
-            <span id="price">--</span>
-            <span id="unit">p/kWh</span>
-        </div>
-
-        <div id="next-container">
-            Next: <span id="next-price">--</span>p
-        </div>
-
-        <div id="time">Connecting...</div>
+    <div id="price-container">
+        <span id="price">...</span>
+        <span id="unit">p/kWh</span>
     </div>
 
-    <script>
-        function updatePrice() {
-            // 1. Jitter for screen health
-            var wrapper = document.getElementById('jitter-wrapper');
-            var randomX = Math.floor(Math.random() * 21) - 10; 
-            var randomY = Math.floor(Math.random() * 21) - 10; 
-            wrapper.style.transform = "translate(" + randomX + "px," + randomY + "px)";
-        
-            // 2. Fetch data with a "Cache Buster" (?v=...) to prevent stale results
-            var url = "https://script.google.com/macros/s/AKfycby4gf4zULR-cQzekmZpXoBs5txrVYr7TJIQWCcwfbwkVy1uqrpz1aniyvkweHTfRbue/exec" + "?v=" + new Date().getTime();
-        
-            fetch(url)
-                .then(response => response.text())
-                .then(data => {
-                    var parts = data.split("|");
-                    if (parts.length >= 2) {
-                        document.getElementById('price').innerHTML = parts[0];
-                        document.getElementById('next-price').innerHTML = parts[1];
-                        
-                        var now = new Date();
-                        var m = now.getMinutes();
-                        var h = now.getHours();
-                        var timeString = (h < 10 ? '0' : '') + h + ":" + (m < 10 ? '0' : '') + m;
-                        document.getElementById('time').innerHTML = "Updated: " + timeString;
-                    }
-                })
-                .catch(err => {
-                    console.error("Fetch error:", err);
-                    document.getElementById('time').innerHTML = "Connection Error...";
-                });
-        }
-        
-        // Keep Wi-Fi alive
-        setInterval(function() {
-            fetch("https://www.google.com/generate_204").catch(() => {});
-        }, 10000);
-        
-        // Run immediately and then every 60 seconds
-        updatePrice();
-        setInterval(updatePrice, 60000);
+    <div id="next-container">
+        Next: <span id="next-price">...</span>p
+    </div>
 
+    <div id="time">Loading...</div>
+
+    <script>
+        // We use the older XMLHttpRequest because Kobo doesn't always know what 'fetch' is
+        function updatePrice() {
+            var url = "https://script.google.com/macros/s/AKfycby4gf4zULR-cQzekmZpXoBs5txrVYr7TJIQWCcwfbwkVy1uqrpz1aniyvkweHTfRbue/exec?cache=" + new Date().getTime();
+            var xhr = new XMLHttpRequest();
+            
+            xhr.open("GET", url, true);
+            xhr.onreadystatechange = function () {
+                if (xhr.readyState == 4 && xhr.status == 200) {
+                    var parts = xhr.responseText.split("|");
+                    document.getElementById('price').innerHTML = parts[0];
+                    document.getElementById('next-price').innerHTML = parts[1];
+                    
+                    var now = new Date();
+                    var h = now.getHours();
+                    var m = now.getMinutes();
+                    document.getElementById('time').innerHTML = "Last Refresh: " + (h<10?'0':'')+h + ":" + (m<10?'0':'')+m;
+                }
+            };
+            xhr.send();
+        }
+
+        // Run once on load. The Meta Tag will handle the "every minute" part.
+        updatePrice();
     </script>
 </body>
 </html>
