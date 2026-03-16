@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <title>Cricket Scoreboard</title>
     <style>
+        /* CSS remains unchanged to preserve Kobo Touch layout */
         body { 
             background: white; color: black; font-family: sans-serif; 
             margin: 0; padding: 5px; text-align: center;
@@ -29,47 +30,65 @@
     <div id="jitter-wrapper">
         <div class="grid">
             <div class="row">
-                <div class="cell"><span class="label">Batter 1</span><span id="v-0" class="value">0</span></div>
+                <div class="cell"><span class="label">Batter 1</span><span id="v-0" class="value">-</span></div>
                 <div class="cell"><span id="clock">00:00</span></div>
-                <div class="cell"><span class="label">Batter 2</span><span id="v-1" class="value">0</span></div>
+                <div class="cell"><span class="label">Batter 2</span><span id="v-1" class="value">-</span></div>
             </div>
             <div class="row">
-                <div class="cell"><span class="label">TOTAL</span><span id="v-4" class="value big-val">0</span></div>
-                <div class="cell"><span class="label">WKTS</span><span id="v-5" class="value big-val">0</span></div>
-                <div class="cell"><span class="label">OVERS</span><span id="v-6" class="value big-val">0</span></div>
+                <div class="cell"><span class="label">TOTAL</span><span id="v-4" class="value big-val">-</span></div>
+                <div class="cell"><span class="label">WKTS</span><span id="v-5" class="value big-val">-</span></div>
+                <div class="cell"><span class="label">OVERS</span><span id="v-6" class="value big-val">-</span></div>
             </div>
             <div class="row">
-                <div class="cell"><span class="label">EXTRAS</span><span id="v-7" class="value">0</span></div>
-                <div class="cell"><span class="label">LAST MAN</span><span id="v-8" class="value">0</span></div>
-                <div class="cell"><span class="label">LAST WKT</span><span id="v-9" class="value">0</span></div>
+                <div class="cell"><span class="label">EXTRAS</span><span id="v-7" class="value">-</span></div>
+                <div class="cell"><span class="label">LAST MAN</span><span id="v-8" class="value">-</span></div>
+                <div class="cell"><span class="label">LAST WKT</span><span id="v-9" class="value">-</span></div>
             </div>
             <div class="row">
-                <div class="cell"><span class="label">1st INNS</span><span id="v-10" class="value">0</span></div>
-                <div class="cell"><span class="label">TO WIN</span><span id="v-11" class="value">0</span></div>
-                <div class="cell"><span class="label">OV REM</span><span id="v-12" class="value">0</span></div>
+                <div class="cell"><span class="label">1st INNS</span><span id="v-10" class="value">-</span></div>
+                <div class="cell" colspan="2"><span class="label">TARGET</span><span id="v-11" class="value">-</span></div>
             </div>
         </div>
-        <div id="time-status">Initializing...</div>
+        <div id="time-status">Connecting...</div>
     </div>
 
     <script>
-        var PROXY_URL = "https://script.google.com/macros/s/AKfycby4gf4zULR-cQzekmZpXoBs5txrVYr7TJIQWCcwfbwkVy1uqrpz1aniyvkweHTfRbue/exec?type=score"; 
-        var lastDataString = "";
+        // Updated to the correct IP found in index.html
+        var LOCAL_URL = "http://192.168.137.1/"; 
+        var CLOUD_URL = "https://api.npoint.io/4694939a039755497223";
+        var isUsingLocal = true; 
 
         function fetchData() {
-            var xhr = new XMLHttpRequest();
-            xhr.open("GET", PROXY_URL + "&cb=" + new Date().getTime(), true);
-            xhr.timeout = 15000;
-            xhr.onreadystatechange = function () {
-                if (xhr.readyState == 4 && xhr.status == 200) {
-                    if (xhr.responseText !== lastDataString) {
-                        updateDisplay(xhr.responseText);
-                        lastDataString = xhr.responseText;
-                    }
-                    updateStatus("Live");
+            var targetUrl = isUsingLocal ? LOCAL_URL : CLOUD_URL;
+            var x = new XMLHttpRequest();
+            
+            // 5 second timeout to handle local IP unavailability
+            x.timeout = 5000; 
+            x.open("GET", targetUrl + "?t=" + new Date().getTime(), true);
+            
+            x.onload = function() {
+                if (x.status >= 200 && x.status < 300) {
+                    updateDisplay(x.responseText);
+                    updateStatus(isUsingLocal ? "Local Mode" : "Cloud Mode");
+                } else {
+                    handleError();
                 }
             };
-            xhr.send();
+
+            x.onerror = handleError;
+            x.ontimeout = handleError;
+            x.send();
+        }
+
+        function handleError() {
+            if (isUsingLocal) {
+                // Failover logic similar to index.html
+                isUsingLocal = false;
+                updateStatus("Local failed. Switching to Cloud...");
+                fetchData(); 
+            } else {
+                updateStatus("Network Error");
+            }
         }
 
         function updateDisplay(rawJson) {
@@ -83,32 +102,28 @@
                         element.innerHTML = (data[idx] !== undefined && data[idx] !== null) ? data[idx] : "-";
                     }
                 }
-            } catch(e) {}
+            } catch(e) {
+                updateStatus("JSON Parse Error");
+            }
         }
 
         function updateStatus(msg) {
             var now = new Date();
             var h = now.getHours(), m = now.getMinutes();
-            document.getElementById('clock').innerHTML = (h<10?'0':'')+h + ":" + (m<10?'0':'')+m;
-            document.getElementById('time-status').innerHTML = msg + " Update: " + h + ":" + (m<10?'0':'')+m;
+            var timeStr = (h<10?'0':'')+h + ":" + (m<10?'0':'')+m;
+            document.getElementById('clock').innerHTML = timeStr;
+            document.getElementById('time-status').innerHTML = msg + " | " + timeStr;
         }
 
-        // 1. Wi-Fi Heartbeat (keeps connection alive)
-        setInterval(function() {
-            var ping = new XMLHttpRequest();
-            ping.open("GET", "https://www.google.com/generate_204", true);
-            ping.send();
-        }, 15000);
-
-        // 2. Fast Data Refresh (every 20 seconds)
-        setInterval(fetchData, 20000);
-
-        // 3. FULL PAGE RELOAD (every 5 minutes to clear E-ink ghosting)
-        setInterval(function() {
-            location.reload();
-        }, 300000); // 300,000ms = 5 minutes
-
+        // Poll every 1 minute. This activity keeps the Kobo Wi-Fi active 
+        // without needing a separate heartbeat.
+        setInterval(fetchData, 60000); 
+        
+        // Initial fetch
         fetchData();
+
+        // Safety reload for browser memory every 12 hours
+        setTimeout(function() { location.reload(); }, 43200000);
     </script>
 </body>
 </html>
