@@ -1,42 +1,19 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <meta http-equiv="refresh" content="60"> 
-    <style>
-        body { 
-            background: white; color: black; font-family: sans-serif; 
-            text-align: center; margin: 0; padding: 0;
-            display: flex; flex-direction: column; justify-content: center; height: 100vh;
-        }
-        #price { font-size: 150px; font-weight: bold; display: block; }
-        #unit { font-size: 40px; display: block; }
-        #next-container { font-size: 38px; margin-top: 40px; border-top: 3px solid #000; padding-top: 20px; }
-        #time { font-size: 20px; color: #777; margin-top: 30px; }
-    </style>
-</head>
-<body>
+function updatePrice() {
+    document.getElementById('time').innerHTML = "Waking up Wi-Fi...";
+    
+    // Give the Kobo 5 seconds to stabilize its connection after the refresh
+    setTimeout(function() {
+        var url = "https://script.google.com/macros/s/AKfycby4gf4zULR-cQzekmZpXoBs5txrVYr7TJIQWCcwfbwkVy1uqrpz1aniyvkweHTfRbue/exec?cache=" + new Date().getTime();
+        var xhr = new XMLHttpRequest();
+        
+        document.getElementById('time').innerHTML = "Fetching data...";
+        
+        xhr.open("GET", url, true);
+        xhr.timeout = 20000; // 20 second timeout
 
-    <div id="price-container">
-        <span id="price">...</span>
-        <span id="unit">p/kWh</span>
-    </div>
-
-    <div id="next-container">
-        Next: <span id="next-price">...</span>p
-    </div>
-
-    <div id="time">Loading...</div>
-
-    <script>
-        // We use the older XMLHttpRequest because Kobo doesn't always know what 'fetch' is
-        function updatePrice() {
-            var url = "https://script.google.com/macros/s/AKfycby4gf4zULR-cQzekmZpXoBs5txrVYr7TJIQWCcwfbwkVy1uqrpz1aniyvkweHTfRbue/exec?cache=" + new Date().getTime();
-            var xhr = new XMLHttpRequest();
-            
-            xhr.open("GET", url, true);
-            xhr.onreadystatechange = function () {
-                if (xhr.readyState == 4 && xhr.status == 200) {
+        xhr.onreadystatechange = function () {
+            if (xhr.readyState == 4) {
+                if (xhr.status == 200) {
                     var parts = xhr.responseText.split("|");
                     document.getElementById('price').innerHTML = parts[0];
                     document.getElementById('next-price').innerHTML = parts[1];
@@ -44,14 +21,21 @@
                     var now = new Date();
                     var h = now.getHours();
                     var m = now.getMinutes();
-                    document.getElementById('time').innerHTML = "Last Refresh: " + (h<10?'0':'')+h + ":" + (m<10?'0':'')+m;
+                    document.getElementById('time').innerHTML = "Updated: " + (h<10?'0':'')+h + ":" + (m<10?'0':'')+m;
+                } else {
+                    document.getElementById('time').innerHTML = "Error: Status " + xhr.status;
                 }
-            };
-            xhr.send();
-        }
+            }
+        };
 
-        // Run once on load. The Meta Tag will handle the "every minute" part.
-        updatePrice();
-    </script>
-</body>
-</html>
+        xhr.onerror = function() {
+            document.getElementById('time').innerHTML = "Network Error - Retrying...";
+            setTimeout(updatePrice, 5000); // Try again in 5 seconds
+        };
+
+        xhr.send();
+    }, 5000); 
+}
+
+// Start the sequence
+updatePrice();
