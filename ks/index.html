@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Cricket Scoreboard - High Speed</title>
+    <title>Cricket Scoreboard</title>
     <style>
         body { 
             background: white; color: black; font-family: sans-serif; 
@@ -33,26 +33,22 @@
                 <div class="cell"><span id="clock">00:00</span></div>
                 <div class="cell"><span class="label">Batter 2</span><span id="v-1" class="value">0</span></div>
             </div>
-
             <div class="row">
                 <div class="cell"><span class="label">TOTAL</span><span id="v-4" class="value big-val">0</span></div>
                 <div class="cell"><span class="label">WKTS</span><span id="v-5" class="value big-val">0</span></div>
                 <div class="cell"><span class="label">OVERS</span><span id="v-6" class="value big-val">0</span></div>
             </div>
-
             <div class="row">
                 <div class="cell"><span class="label">EXTRAS</span><span id="v-7" class="value">0</span></div>
                 <div class="cell"><span class="label">LAST MAN</span><span id="v-8" class="value">0</span></div>
                 <div class="cell"><span class="label">LAST WKT</span><span id="v-9" class="value">0</span></div>
             </div>
-
             <div class="row">
                 <div class="cell"><span class="label">1st INNS</span><span id="v-10" class="value">0</span></div>
                 <div class="cell"><span class="label">TO WIN</span><span id="v-11" class="value">0</span></div>
                 <div class="cell"><span class="label">OV REM</span><span id="v-12" class="value">0</span></div>
             </div>
         </div>
-
         <div id="time-status">Initializing...</div>
     </div>
 
@@ -64,65 +60,54 @@
             var xhr = new XMLHttpRequest();
             xhr.open("GET", PROXY_URL + "&cb=" + new Date().getTime(), true);
             xhr.timeout = 15000;
-
             xhr.onreadystatechange = function () {
-                if (xhr.readyState == 4) {
-                    if (xhr.status == 200) {
-                        // Only redraw if the data actually changed
-                        if (xhr.responseText !== lastDataString) {
-                            updateDisplay(xhr.responseText);
-                            lastDataString = xhr.responseText;
-                        }
-                        updateStatus("Live");
-                    } else {
-                        updateStatus("Error: " + xhr.status);
+                if (xhr.readyState == 4 && xhr.status == 200) {
+                    if (xhr.responseText !== lastDataString) {
+                        updateDisplay(xhr.responseText);
+                        lastDataString = xhr.responseText;
                     }
+                    updateStatus("Live");
                 }
             };
-            xhr.onerror = function() { updateStatus("Network Error"); };
             xhr.send();
         }
 
         function updateDisplay(rawJson) {
             try {
                 var data = JSON.parse(rawJson);
-                // Indices from your original list
                 var mapping = [0, 1, 4, 5, 6, 7, 8, 9, 10, 11, 12];
-                
                 for (var i = 0; i < mapping.length; i++) {
                     var idx = mapping[i];
                     var element = document.getElementById('v-' + idx);
                     if (element) {
-                        // Use "0" or "-" if the data point is missing/null
-                        var val = (data[idx] !== undefined && data[idx] !== null) ? data[idx] : "-";
-                        element.innerHTML = val;
+                        element.innerHTML = (data[idx] !== undefined && data[idx] !== null) ? data[idx] : "-";
                     }
                 }
-            } catch(e) {
-                console.log("Parse error");
-                updateStatus("Data Sync Error");
-            }
+            } catch(e) {}
         }
 
         function updateStatus(msg) {
             var now = new Date();
             var h = now.getHours(), m = now.getMinutes();
-            var timeStr = (h<10?'0':'')+h + ":" + (m<10?'0':'')+m;
-            document.getElementById('clock').innerHTML = timeStr;
-            document.getElementById('time-status').innerHTML = msg + " @ " + timeStr;
+            document.getElementById('clock').innerHTML = (h<10?'0':'')+h + ":" + (m<10?'0':'')+m;
+            document.getElementById('time-status').innerHTML = msg + " Update: " + h + ":" + (m<10?'0':'')+m;
         }
 
-        // 1. Keep Wi-Fi active (Mains powered mode)
+        // 1. Wi-Fi Heartbeat (keeps connection alive)
         setInterval(function() {
             var ping = new XMLHttpRequest();
             ping.open("GET", "https://www.google.com/generate_204", true);
             ping.send();
         }, 15000);
 
-        // 2. Refresh scores every 20 seconds (Good balance for Cricket)
+        // 2. Fast Data Refresh (every 20 seconds)
         setInterval(fetchData, 20000);
 
-        // Initial run
+        // 3. FULL PAGE RELOAD (every 5 minutes to clear E-ink ghosting)
+        setInterval(function() {
+            location.reload();
+        }, 300000); // 300,000ms = 5 minutes
+
         fetchData();
     </script>
 </body>
