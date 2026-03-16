@@ -54,18 +54,19 @@
 
     <script>
         var LOCAL_URL = "http://192.168.137.1/"; 
-        var CLOUD_URL = "https://api.npoint.io/4694939a039755497223";
+        var CLOUD_URL = "https://api.npoint.io/e5ab2c288d26e7ce23ca";
         
         var isUsingLocal = true; 
-        var isRetrying = false; // Prevents double-triggering error logic
+        var isRetrying = false; 
 
         function fetchData() {
             isRetrying = false;
             var targetUrl = isUsingLocal ? LOCAL_URL : CLOUD_URL;
             var x = new XMLHttpRequest();
             
-            x.timeout = 5000; 
-            // Append timestamp to prevent aggressive caching
+            // Short timeout so it falls back to cloud quickly if local is missing
+            x.timeout = 1000; 
+            
             var sep = targetUrl.indexOf('?') !== -1 ? "&" : "?";
             x.open("GET", targetUrl + sep + "t=" + new Date().getTime(), true);
             
@@ -74,7 +75,8 @@
                     if (x.status >= 200 && x.status < 300) {
                         updateDisplay(x.responseText);
                         updateStatus(isUsingLocal ? "Local Mode" : "Cloud Mode");
-                    } else {
+                    } else if (x.status !== 0 || x.readyState === 4) {
+                        // status 0 usually means a blocked/failed connection
                         handleError();
                     }
                 }
@@ -86,25 +88,24 @@
         }
 
         function handleError() {
-            // Check if we are already in the middle of a fallback attempt
             if (isRetrying) return; 
 
             if (isUsingLocal) {
                 isRetrying = true;
                 isUsingLocal = false; 
-                updateStatus("Local unavailable. Trying Cloud...");
+                updateStatus("Local failed. Trying Cloud...");
                 
-                // 500ms delay to ensure the previous socket is closed
+                // Small delay ensures the previous failed request is fully cleared
                 setTimeout(fetchData, 500); 
             } else {
-                updateStatus("Network Error (Both failed)");
+                updateStatus("Network Error (Cloud also failed)");
             }
         }
 
         function updateDisplay(rawJson) {
             try {
                 var data = JSON.parse(rawJson);
-                // Mapping IDs to JSON indices
+                // Mapping IDs based on your specific index structure
                 var mapping = [0, 1, 4, 5, 6, 7, 8, 9, 10, 11];
                 for (var i = 0; i < mapping.length; i++) {
                     var idx = mapping[i];
@@ -127,13 +128,13 @@
             document.getElementById('time-status').innerHTML = msg + " | " + timeStr;
         }
 
-        // Refresh data every 60 seconds
+        // Refresh every 60 seconds
         setInterval(fetchData, 60000); 
         
-        // Initial fetch on load
+        // Start immediately
         fetchData();
 
-        // Full page reload every 12 hours to prevent memory leaks or browser stalls
+        // Hard reload every 12 hours for stability
         setTimeout(function() { location.reload(); }, 43200000);
     </script>
 </body>
