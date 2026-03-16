@@ -1,41 +1,121 @@
-function updatePrice() {
-    document.getElementById('time').innerHTML = "Waking up Wi-Fi...";
-    
-    // Give the Kobo 5 seconds to stabilize its connection after the refresh
-    setTimeout(function() {
-        var url = "https://script.google.com/macros/s/AKfycby4gf4zULR-cQzekmZpXoBs5txrVYr7TJIQWCcwfbwkVy1uqrpz1aniyvkweHTfRbue/exec?cache=" + new Date().getTime();
-        var xhr = new XMLHttpRequest();
-        
-        document.getElementById('time').innerHTML = "Fetching data...";
-        
-        xhr.open("GET", url, true);
-        xhr.timeout = 20000; // 20 second timeout
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="refresh" content="60">
+    <title>Energy Price Tracker</title>
+    <style>
+        body { 
+            background: white; 
+            color: black; 
+            font-family: sans-serif; 
+            text-align: center; 
+            margin: 0; 
+            padding: 0;
+            display: flex; 
+            flex-direction: column; 
+            justify-content: center; 
+            height: 100vh;
+            overflow: hidden;
+        }
+        #price-container {
+            margin-bottom: 20px;
+        }
+        #price { 
+            font-size: 160px; 
+            font-weight: bold; 
+            display: block; 
+            line-height: 0.9;
+        }
+        #unit { 
+            font-size: 40px; 
+            display: block; 
+            margin-top: 10px;
+        }
+        #next-container { 
+            font-size: 36px; 
+            color: #333; 
+            margin-top: 40px; 
+            border-top: 4px solid #000; 
+            padding-top: 20px; 
+            display: inline-block; 
+            width: 80%; 
+            margin-left: auto; 
+            margin-right: auto;
+        }
+        #time { 
+            font-size: 22px; 
+            color: #666; 
+            margin-top: 40px; 
+        }
+    </style>
+</head>
+<body>
 
-        xhr.onreadystatechange = function () {
-            if (xhr.readyState == 4) {
-                if (xhr.status == 200) {
-                    var parts = xhr.responseText.split("|");
-                    document.getElementById('price').innerHTML = parts[0];
-                    document.getElementById('next-price').innerHTML = parts[1];
-                    
-                    var now = new Date();
-                    var h = now.getHours();
-                    var m = now.getMinutes();
-                    document.getElementById('time').innerHTML = "Updated: " + (h<10?'0':'')+h + ":" + (m<10?'0':'')+m;
-                } else {
-                    document.getElementById('time').innerHTML = "Error: Status " + xhr.status;
-                }
-            }
-        };
+    <div id="price-container">
+        <span id="price">...</span>
+        <span id="unit">p/kWh</span>
+    </div>
 
-        xhr.onerror = function() {
-            document.getElementById('time').innerHTML = "Network Error - Retrying...";
-            setTimeout(updatePrice, 5000); // Try again in 5 seconds
-        };
+    <div id="next-container">
+        Next: <span id="next-price">...</span>p
+    </div>
 
-        xhr.send();
-    }, 5000); 
-}
+    <div id="time">Waking up...</div>
 
-// Start the sequence
-updatePrice();
+    <script>
+        function updatePrice() {
+            // Step 1: Tell the user we are starting
+            document.getElementById('time').innerHTML = "Connecting to Wi-Fi...";
+
+            // Step 2: Wait 5 seconds for Kobo Wi-Fi to stabilize after the page refresh
+            setTimeout(function() {
+                var url = "https://script.google.com/macros/s/AKfycby4gf4zULR-cQzekmZpXoBs5txrVYr7TJIQWCcwfbwkVy1uqrpz1aniyvkweHTfRbue/exec?nocache=" + new Date().getTime();
+                var xhr = new XMLHttpRequest();
+                
+                document.getElementById('time').innerHTML = "Fetching Price...";
+                
+                xhr.open("GET", url, true);
+                xhr.timeout = 25000; // Give it 25 seconds before giving up
+
+                xhr.onreadystatechange = function () {
+                    if (xhr.readyState == 4) {
+                        if (xhr.status == 200) {
+                            var data = xhr.responseText;
+                            var parts = data.split("|");
+                            
+                            if (parts.length >= 2) {
+                                document.getElementById('price').innerHTML = parts[0];
+                                document.getElementById('next-price').innerHTML = parts[1];
+                                
+                                var now = new Date();
+                                var h = now.getHours();
+                                var m = now.getMinutes();
+                                var timeStr = (h < 10 ? '0' : '') + h + ":" + (m < 10 ? '0' : '') + m;
+                                document.getElementById('time').innerHTML = "Last Updated: " + timeStr;
+                            } else {
+                                document.getElementById('time').innerHTML = "Data Format Error";
+                            }
+                        } else {
+                            document.getElementById('time').innerHTML = "Error: Status " + xhr.status;
+                        }
+                    }
+                };
+
+                xhr.onerror = function() {
+                    document.getElementById('time').innerHTML = "Network Failed. Retrying...";
+                };
+
+                xhr.ontimeout = function() {
+                    document.getElementById('time').innerHTML = "Request Timed Out.";
+                };
+
+                xhr.send();
+            }, 5000); 
+        }
+
+        // Run the function immediately when the page loads
+        updatePrice();
+    </script>
+</body>
+</html>
