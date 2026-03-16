@@ -2,8 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="refresh" content="60">
-    <title>Energy Price Tracker</title>
+    <meta http-equiv="refresh" content="60"> <title>Energy Price Tracker</title>
     <style>
         body { 
             background: white; color: black; font-family: sans-serif; 
@@ -12,93 +11,105 @@
             overflow: hidden;
         }
         #price-container { margin-bottom: 20px; }
-        #price { font-size: 160px; font-weight: bold; display: block; line-height: 0.9; }
-        #unit { font-size: 40px; display: block; margin-top: 10px; }
+        #price { font-size: 140px; font-weight: bold; display: block; line-height: 0.9; }
+        #unit { font-size: 30px; display: block; margin-top: 10px; }
         #next-container { 
-            font-size: 36px; color: #333; margin-top: 40px; 
-            border-top: 4px solid #000; padding-top: 20px; 
-            display: inline-block; width: 80%; margin-left: auto; margin-right: auto;
+            font-size: 30px; color: #333; margin-top: 20px; 
+            border-top: 3px solid #000; padding-top: 15px; 
+            display: inline-block; width: 80%;
         }
-        #time { font-size: 22px; color: #666; margin-top: 40px; }
+        #time { font-size: 18px; color: #666; margin-top: 30px; }
     </style>
 </head>
 <body>
 
     <div id="price-container">
-        <span id="price">...</span>
+        <span id="price">--.-</span>
         <span id="unit">p/kWh</span>
     </div>
 
     <div id="next-container">
-        Next: <span id="next-price">...</span>p
+        Next: <span id="next-price">--.-</span>p
     </div>
 
-    <div id="time"></div>
+    <div id="time">Initializing...</div>
 
     <script>
-        // NEW: Load saved data immediately on startup
-        function loadStoredData() {
-            var savedPrice = localStorage.getItem('agile_price');
-            var savedNext = localStorage.getItem('agile_next');
-            var savedTime = localStorage.getItem('agile_time');
+        // Use a simple global variable to store the price schedule
+        var priceData = null;
 
-            if (savedPrice) document.getElementById('price').innerHTML = savedPrice;
-            if (savedNext) document.getElementById('next-price').innerHTML = savedNext;
-            // if (savedTime) document.getElementById('time').innerHTML = "Last: " + savedTime + " (Syncing...)";
-        }
+        function updateDisplay() {
+            var now = new Date();
+            var currentTime = now.getTime();
+            
+            // Try to load from localStorage if global variable is empty
+            if (!priceData) {
+                var saved = localStorage.getItem('octopus_schedule');
+                if (saved) priceData = JSON.parse(saved);
+            }
 
-        function updatePrice() {
-            // document.getElementById('time').innerHTML = "Connecting to Wi-Fi...";
-
-            setTimeout(function() {
-                var url = "https://script.google.com/macros/s/AKfycby4gf4zULR-cQzekmZpXoBs5txrVYr7TJIQWCcwfbwkVy1uqrpz1aniyvkweHTfRbue/exec?nocache=" + new Date().getTime();
-                var xhr = new XMLHttpRequest();
+            if (priceData && priceData.length > 0) {
+                var currentPrice = "??";
+                var nextPrice = "??";
                 
-                // document.getElementById('time').innerHTML = "Fetching Price...";
-                
-                xhr.open("GET", url, true);
-                xhr.timeout = 25000;
-
-                xhr.onreadystatechange = function () {
-                    if (xhr.readyState == 4) {
-                        if (xhr.status == 200) {
-                            var data = xhr.responseText;
-                            var parts = data.split("|");
-                            
-                            if (parts.length >= 2) {
-                                // Update Display
-                                document.getElementById('price').innerHTML = parts[0];
-                                document.getElementById('next-price').innerHTML = parts[1];
-                                
-                                var now = new Date();
-                                var h = now.getHours();
-                                var m = now.getMinutes();
-                                var timeStr = (h < 10 ? '0' : '') + h + ":" + (m < 10 ? '0' : '') + m;
-                                
-                                document.getElementById('time').innerHTML = "Updated: " + timeStr;
-
-                                // NEW: Save to LocalStorage for the next reload
-                                localStorage.setItem('agile_price', parts[0]);
-                                localStorage.setItem('agile_next', parts[1]);
-                                localStorage.setItem('agile_time', timeStr);
-                            } else {
-                                document.getElementById('time').innerHTML = "Data Format Error";
-                            }
-                        } else {
-                            document.getElementById('time').innerHTML = "Error: Status " + xhr.status;
+                // Find the slot that matches right now
+                for (var i = 0; i < priceData.length; i++) {
+                    var slotStart = new Date(priceData[i].start).getTime();
+                    var slotEnd = new Date(priceData[i].end).getTime();
+                    
+                    if (currentTime >= slotStart && currentTime < slotEnd) {
+                        currentPrice = priceData[i].value.toFixed(1);
+                        if (priceData[i+1]) {
+                            nextPrice = priceData[i+1].value.toFixed(1);
                         }
+                        break;
                     }
-                };
+                }
 
-                xhr.onerror = function() { document.getElementById('time').innerHTML = "Network Failed."; };
-                xhr.send();
-            }, 5000); 
+                document.getElementById('price').innerHTML = currentPrice;
+                document.getElementById('next-price').innerHTML = nextPrice;
+                document.getElementById('time').innerHTML = "Last Sync: " + (localStorage.getItem('last_sync_time') || "Unknown");
+                
+                // If we are nearing the end of our stored data, trigger a fetch
+                var lastSlotEnd = new Date(priceData[priceData.length - 1].end).getTime();
+                if (currentTime > lastSlotEnd - 3600000) { // 1 hour before data runs out
+                    fetchNewData();
+                }
+            } else {
+                fetchNewData();
+            }
         }
 
-        // 1. Show old data first
-        loadStoredData();
-        // 2. Start the update process
-        updatePrice();
+        function fetchNewData() {
+            document.getElementById('time').innerHTML = "Syncing with API...";
+            
+            // Note: Update this URL to a Google Script that returns a JSON array of slots
+            // instead of just two pipe-separated values.
+            var url = "YOUR_GOOGLE_SCRIPT_URL_THAT_RETURNS_JSON";
+            var xhr = new XMLHttpRequest();
+            xhr.open("GET", url, true);
+            xhr.onreadystatechange = function () {
+                if (xhr.readyState == 4 && xhr.status == 200) {
+                    try {
+                        var data = JSON.parse(xhr.responseText);
+                        priceData = data;
+                        localStorage.setItem('octopus_schedule', xhr.responseText);
+                        
+                        var d = new Date();
+                        var ts = d.getHours() + ":" + (d.getMinutes() < 10 ? '0' : '') + d.getMinutes();
+                        localStorage.setItem('last_sync_time', ts);
+                        
+                        updateDisplay();
+                    } catch(e) {
+                        document.getElementById('time').innerHTML = "JSON Parse Error";
+                    }
+                }
+            };
+            xhr.send();
+        }
+
+        // Run on load
+        updateDisplay();
     </script>
 </body>
 </html>
