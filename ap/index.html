@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="refresh" content="1800">
+    <style>
+        body { 
+            background: white; color: black; font-family: sans-serif; 
+            text-align: center; margin: 0; padding: 0;
+            display: flex; flex-direction: column; justify-content: center; height: 100vh;
+            overflow: hidden;
+        }
+        #jitter-wrapper { position: relative; width: 100%; }
+        #price { font-size: 180px; font-weight: bold; display: block; line-height: 0.8; }
+        #unit { font-size: 40px; display: block; margin-top: 10px; }
+        #next-container { font-size: 38px; color: #333; margin-top: 50px; border-top: 3px solid #000; padding-top: 20px; display: inline-block; width: 80%; }
+        #time { font-size: 20px; color: #777; margin-top: 30px; }
+    </style>
+</head>
+<body>
+
+    <div id="jitter-wrapper">
+        <div id="price-container">
+            <span id="price">--</span>
+            <span id="unit">p/kWh</span>
+        </div>
+
+        <div id="next-container">
+            Next: <span id="next-price">--</span>p
+        </div>
+
+        <div id="time">Connecting...</div>
+    </div>
+
+    <script>
+        function updatePrice() {
+            // 1. Apply Jitter to prevent screen ghosting
+            var wrapper = document.getElementById('jitter-wrapper');
+            var randomX = Math.floor(Math.random() * 21) - 10; // -10 to +10px
+            var randomY = Math.floor(Math.random() * 21) - 10; // -10 to +10px
+            wrapper.style.transform = "translate(" + randomX + "px," + randomY + "px)";
+
+            // 2. Fetch data from your Google Script
+            var url = "https://script.google.com/macros/s/AKfycby4gf4zULR-cQzekmZpXoBs5txrVYr7TJIQWCcwfbwkVy1uqrpz1aniyvkweHTfRbue/exec"; 
+            var xhr = new XMLHttpRequest();
+            xhr.open("GET", url, true);
+            xhr.onreadystatechange = function () {
+                if (xhr.readyState == 4 && xhr.status == 200) {
+                    var parts = xhr.responseText.split("|");
+                    document.getElementById('price').innerHTML = parts[0];
+                    document.getElementById('next-price').innerHTML = parts[1];
+                    
+                    var now = new Date();
+                    var m = now.getMinutes();
+                    document.getElementById('time').innerHTML = "Updated: " + now.getHours() + ":" + (m < 10 ? '0' : '') + m;
+                }
+            };
+            xhr.send();
+        }
+
+        // Keep Wi-Fi alive by pinging Google every 4 minutes
+        setInterval(function() {
+            var ping = new XMLHttpRequest();
+            ping.open("GET", "https://www.google.com/generate_204", true);
+            ping.send();
+        }, 240000);
+
+        // Run immediately on load
+        updatePrice();
+    </script>
+</body>
+</html>
