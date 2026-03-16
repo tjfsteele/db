@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="refresh" content="60"> <title>Energy Price Tracker</title>
+    <meta http-equiv="refresh" content="60"> <title>Agile Tracker</title>
     <style>
         body { 
             background: white; color: black; font-family: sans-serif; 
@@ -10,106 +10,97 @@
             display: flex; flex-direction: column; justify-content: center; height: 100vh;
             overflow: hidden;
         }
-        #price-container { margin-bottom: 20px; }
+        #price-container { margin-bottom: 10px; }
         #price { font-size: 140px; font-weight: bold; display: block; line-height: 0.9; }
-        #unit { font-size: 30px; display: block; margin-top: 10px; }
+        #unit { font-size: 30px; display: block; margin-top: 5px; }
         #next-container { 
-            font-size: 30px; color: #333; margin-top: 20px; 
-            border-top: 3px solid #000; padding-top: 15px; 
-            display: inline-block; width: 80%;
+            font-size: 32px; color: #000; margin-top: 20px; 
+            border-top: 4px solid #000; padding-top: 15px; 
+            display: inline-block; width: 70%;
         }
-        #time { font-size: 18px; color: #666; margin-top: 30px; }
+        #time { font-size: 18px; color: #444; margin-top: 30px; }
     </style>
 </head>
 <body>
 
     <div id="price-container">
-        <span id="price">--.-</span>
+        <span id="price">--</span>
         <span id="unit">p/kWh</span>
     </div>
 
     <div id="next-container">
-        Next: <span id="next-price">--.-</span>p
+        Next: <span id="next-price">--</span>p
     </div>
 
-    <div id="time">Initializing...</div>
+    <div id="time">Loading...</div>
 
     <script>
-        // Use a simple global variable to store the price schedule
-        var priceData = null;
+        var SCRIPT_URL = "https://script.google.com/macros/s/AKfycby4gf4zULR-cQzekmZpXoBs5txrVYr7TJIQWCcwfbwkVy1uqrpz1aniyvkweHTfRbue/exec";
 
-        function updateDisplay() {
+        function updateUI() {
             var now = new Date();
             var currentTime = now.getTime();
-            
-            // Try to load from localStorage if global variable is empty
-            if (!priceData) {
-                var saved = localStorage.getItem('octopus_schedule');
-                if (saved) priceData = JSON.parse(saved);
-            }
+            var cached = localStorage.getItem('agile_data');
+            var lastSync = localStorage.getItem('last_sync') || "Never";
 
-            if (priceData && priceData.length > 0) {
-                var currentPrice = "??";
-                var nextPrice = "??";
-                
-                // Find the slot that matches right now
-                for (var i = 0; i < priceData.length; i++) {
-                    var slotStart = new Date(priceData[i].start).getTime();
-                    var slotEnd = new Date(priceData[i].end).getTime();
-                    
-                    if (currentTime >= slotStart && currentTime < slotEnd) {
-                        currentPrice = priceData[i].value.toFixed(1);
-                        if (priceData[i+1]) {
-                            nextPrice = priceData[i+1].value.toFixed(1);
-                        }
+            if (cached) {
+                var schedule = JSON.parse(cached);
+                var found = false;
+
+                for (var i = 0; i < schedule.length; i++) {
+                    var start = new Date(schedule[i].s).getTime();
+                    var end = new Date(schedule[i].e).getTime();
+
+                    if (currentTime >= start && currentTime < end) {
+                        document.getElementById('price').innerHTML = schedule[i].v.toFixed(1);
+                        
+                        var nextVal = (schedule[i+1]) ? schedule[i+1].v.toFixed(1) : "??";
+                        document.getElementById('next-price').innerHTML = nextVal;
+                        
+                        document.getElementById('time').innerHTML = "Sync: " + lastSync;
+                        found = true;
                         break;
                     }
                 }
 
-                document.getElementById('price').innerHTML = currentPrice;
-                document.getElementById('next-price').innerHTML = nextPrice;
-                document.getElementById('time').innerHTML = "Last Sync: " + (localStorage.getItem('last_sync_time') || "Unknown");
-                
-                // If we are nearing the end of our stored data, trigger a fetch
-                var lastSlotEnd = new Date(priceData[priceData.length - 1].end).getTime();
-                if (currentTime > lastSlotEnd - 3600000) { // 1 hour before data runs out
-                    fetchNewData();
+                // If we have data but it's expired (e.g. past midnight), or we're in the last 2 slots
+                if (!found || (currentTime > new Date(schedule[schedule.length-2].s).getTime())) {
+                    fetchData();
                 }
             } else {
-                fetchNewData();
+                fetchData();
             }
         }
 
-        function fetchNewData() {
-            document.getElementById('time').innerHTML = "Syncing with API...";
-            
-            // Note: Update this URL to a Google Script that returns a JSON array of slots
-            // instead of just two pipe-separated values.
-            var url = "https://script.google.com/macros/s/AKfycby4gf4zULR-cQzekmZpXoBs5txrVYr7TJIQWCcwfbwkVy1uqrpz1aniyvkweHTfRbue/exec";
+        function fetchData() {
             var xhr = new XMLHttpRequest();
-            xhr.open("GET", url, true);
+            // Add a cache-buster to the URL
+            xhr.open("GET", SCRIPT_URL + "?nocache=" + new Date().getTime(), true);
+            xhr.timeout = 30000; 
+
             xhr.onreadystatechange = function () {
                 if (xhr.readyState == 4 && xhr.status == 200) {
                     try {
-                        var data = JSON.parse(xhr.responseText);
-                        priceData = data;
-                        localStorage.setItem('octopus_schedule', xhr.responseText);
+                        // Validate it's actually JSON before saving
+                        var testJson = JSON.parse(xhr.responseText);
+                        localStorage.setItem('agile_data', xhr.responseText);
                         
                         var d = new Date();
                         var ts = d.getHours() + ":" + (d.getMinutes() < 10 ? '0' : '') + d.getMinutes();
-                        localStorage.setItem('last_sync_time', ts);
+                        localStorage.setItem('last_sync', ts);
                         
-                        updateDisplay();
+                        updateUI();
                     } catch(e) {
-                        document.getElementById('time').innerHTML = "JSON Parse Error";
+                        document.getElementById('time').innerHTML = "Sync Error (JSON)";
                     }
                 }
             };
+            xhr.onerror = function() { document.getElementById('time').innerHTML = "Sync Failed (Network)"; };
             xhr.send();
         }
 
-        // Run on load
-        updateDisplay();
+        // Run immediately
+        updateUI();
     </script>
 </body>
 </html>
