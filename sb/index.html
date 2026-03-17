@@ -236,12 +236,18 @@
             }, 10000);
         }
 
-        window.addEventListener('DOMContentLoaded', function() {
-            initUI();
-            initFsLogic();
-            setInterval(tickClock, 1000);
-            poll();
-        });
+        // Chromecast-safe startup
+        window.onload = function() {
+            // Give the slow processor 500ms to catch its breath
+            setTimeout(function() {
+                if (typeof initUI === "function") initUI();
+                if (typeof initFsLogic === "function") initFsLogic();
+                
+                // Start the clock and the polling
+                setInterval(tickClock, 1000);
+                poll();
+            }, 500);
+        };
     </script>
 </body>
 </html>
