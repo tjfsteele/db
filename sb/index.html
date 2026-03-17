@@ -166,43 +166,51 @@
         }
 
         function poll() {
-            // Cache-busting is handled by the "?t=" at the end of the URL
-            var url = (isUsingLocal ? LOCAL_URL : NPOINT_URL) + "?t=" + Date.now();
+            if (pollTimer) clearTimeout(pollTimer);
+
+            var x = new XMLHttpRequest();
+            x.timeout = 2500; 
             
-            x.abort(); 
-            x.open('GET', url, true);
-            x.timeout = 2500;
-        
-            x.onreadystatechange = function () {
+            var target = isUsingLocal ? LOCAL_URL : CLOUD_URL;
+            x.open('GET', target + '?t=' + new Date().getTime(), true);
+
+            x.onreadystatechange = function() {
                 if (x.readyState === 4) {
                     if (x.status === 200) {
-                        try { 
-                            render(JSON.parse(x.responseText)); 
-                            flash(isUsingLocal ? 'local' : 'cloud'); 
-                        } catch (e) { flash('error'); }
-                    } else if (isUsingLocal) {
-                        // If local fails (status 0 or 404), flip to cloud
-                        console.log("Local fail, switching to cloud...");
-                        isUsingLocal = false; 
-                        currentInterval = CLOUD_SPEED;
+                        try {
+                            var data = JSON.parse(x.responseText);
+                            updateUI(data);
+                            flash(isUsingLocal ? 'local' : 'cloud');
+                            if (!isUsingLocal) {
+                                console.log("Local restored!");
+                                isUsingLocal = true;
+                                currentInterval = LOCAL_SPEED;
+                            }
+                        } catch(e) { console.error("Parse Error"); }
+                    } else {
+                        handleNetworkError();
                     }
-                    
-                    // Re-schedule next poll
-                    clearTimeout(pollTimer);
-                    pollTimer = setTimeout(poll, currentInterval);
+                    scheduleNext();
                 }
             };
-        
-            x.onerror = function() { 
-                if(isUsingLocal) { 
-                    isUsingLocal = false; 
-                    currentInterval = CLOUD_SPEED; 
-                    clearTimeout(pollTimer);
-                    pollTimer = setTimeout(poll, currentInterval);
+
+            x.onerror = function() { handleNetworkError(); scheduleNext(); };
+            x.ontimeout = function() { handleNetworkError(); scheduleNext(); };
+
+            function handleNetworkError() {
+                if (isUsingLocal) {
+                    console.warn("Switching to Cloud.");
+                    isUsingLocal = false;
+                    currentInterval = CLOUD_SPEED;
                 }
-            };
-            
-            x.send(); // No custom headers here = No Preflight issues!
+            }
+
+            function scheduleNext() {
+                clearTimeout(pollTimer);
+                pollTimer = setTimeout(poll, currentInterval);
+            }
+
+            x.send();
         }
         
         function flash(t) {
@@ -228,10 +236,12 @@
             }, 10000);
         }
 
-        initUI();
-        initFsLogic();
-        setInterval(tickClock, 1000);
-        poll();
+        window.addEventListener('DOMContentLoaded', function() {
+            initUI();
+            initFsLogic();
+            setInterval(tickClock, 1000);
+            poll();
+        });
     </script>
 </body>
 </html>
