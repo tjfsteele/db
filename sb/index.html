@@ -62,97 +62,149 @@
     <div id="last-update">CONNECTING...</div>
 
     <script>
-        var LOCAL_URL = 'http://192.168.137.1/';
-        var CLOUD_URL = 'https://api.npoint.io/e5ab2c288d26e7ce23ca';
+        var NPOINT_ID = "e5ab2c288d26e7ce23ca";
+        var LOCAL_URL = "http://192.168.137.1/"; 
+        var NPOINT_URL = 'https://api.npoint.io/' + NPOINT_ID;
         var LOCAL_SPEED = 1000;
         var CLOUD_SPEED = 5000;
-        
+        var currentInterval = LOCAL_SPEED;
         var isUsingLocal = true;
         var pollTimer = null;
-        var currentInterval = LOCAL_SPEED;
+        
+        // Single XHR object to save memory on Smart TVs
+        var x = new XMLHttpRequest();
 
-        // Keep your original labels and indices mapping
-        var labels = ["TOTAL", "WKTS", "OVERS", "LAST WK", "LAST INN", "BAT 1", "BAT 2", "TARGET", "DLS PAR", "REMAIN"];
-        var indices = ["01", "02", "07", "03", "11", "04", "05", "10", "14", "13"];
+        var ROWS = [
+            [["Batter", 2], ["Total", 4], ["Batter", 3]],
+            [["Extras", 7], ["Wickets", 5], ["Overs", 6]],
+            [["1st Inns", 10], ["Last Man", 8], ["Overs Rem", 12]],
+            [["To Win", 11], ["Last Wkt", 9], ["DLS Par", 13]]
+        ];
 
-        function initUI() {
-            var container = document.getElementById('board-container');
-            container.innerHTML = '';
-            labels.forEach(function(l, i) {
-                var div = document.createElement('div');
-                div.className = 'item';
-                if(l === "TOTAL") div.classList.add('full-width');
-                div.innerHTML = '<div class="label">'+l+'</div><div class="value" id="val-'+indices[i]+'">---</div>';
-                container.appendChild(div);
-            });
+        // Polyfill for 1st Gen Chromecast
+        if (!String.prototype.padStart) {
+            String.prototype.padStart = function(t, p) {
+                t = t >> 0; p = String(p || ' ');
+                if (this.length > t) return String(this);
+                t = t - this.length;
+                if (t > p.length) p += p.repeat(t / p.length);
+                return p.slice(0, t) + String(this);
+            };
         }
 
-        function updateUI(data) {
-            indices.forEach(function(idx, i) {
-                var el = document.getElementById('val-'+idx);
-                var val = data[parseInt(idx)-1];
-                if(el && val !== undefined) {
-                    el.innerText = (val === null || val.toString().trim() === "") ? "0" : val;
+        var refs = { time: [], b1: [], b2: [], rows: [] };
+
+        function cDig(p, isC, isS) {
+            var w = document.createElement('div');
+            w.className = isC ? 'clock-colon-wrap' : (isS ? 'top-digit-wrap' : 'cell');
+            w.innerHTML = '<div class="digit-bg">'+(isC?':':'8')+'</div><div class="digit'+(isC?' blink':'')+'">'+(isC?':':'')+'</div>';
+            p.appendChild(w);
+            return w.querySelector('.digit');
+        }
+
+        function initUI() {
+            var board = document.getElementById('board');
+            board.innerHTML = '';
+            var r0 = document.createElement('div'); r0.className = 'top-row-grid';
+            var g1 = document.createElement('div'); g1.className = 'group-wrap';
+            refs.b1 = [cDig(g1,0,1), cDig(g1,0,1)];
+            var gT = document.createElement('div'); gT.className = 'group-wrap';
+            refs.time = [cDig(gT,0,1), cDig(gT,0,1), cDig(gT,1,1), cDig(gT,0,1), cDig(gT,0,1)];
+            var g2 = document.createElement('div'); g2.className = 'group-wrap';
+            refs.b2 = [cDig(g2,0,1), cDig(g2,0,1)];
+            r0.appendChild(g1); r0.appendChild(gT); r0.appendChild(g2);
+            board.appendChild(r0);
+
+            for (var r=0; r<4; r++) {
+                var cont = document.createElement('div'); cont.className = 'row-container';
+                var lRow = document.createElement('div'); lRow.className = 'label-row';
+                var dRow = document.createElement('div'); dRow.className = 'digit-row';
+                refs.rows[r] = [];
+                for (var c=0; c<3; c++) {
+                    var lbl = document.createElement('div');
+                    lbl.className = 'label inactive'; lbl.id = 'l-'+r+'-'+c;
+                    lbl.innerHTML = (ROWS[r][c][0] === "Wickets") ? '<span id="status-dot"></span>Wickets' : ROWS[r][c][0];
+                    lRow.appendChild(lbl);
+                    var g = document.createElement('div'); g.className = 'group-wrap';
+                    refs.rows[r][c] = [cDig(g,0,0), cDig(g,0,0), cDig(g,0,0)];
+                    dRow.appendChild(g);
                 }
-            });
+                cont.appendChild(lRow); cont.appendChild(dRow);
+                board.appendChild(cont);
+            }
+        }
+
+        function tickClock() {
+            var d = new Date();
+            var h = d.getHours().toString().padStart(2,'0');
+            var m = d.getMinutes().toString().padStart(2,'0');
+            var s = h + ":" + m;
+            if (refs.time.length === 5) {
+                for(var i=0; i<5; i++) if(i !== 2) refs.time[i].textContent = s[i];
+            }
+        }
+
+        function render(vals) {
+            tickClock();
+            var b1 = (vals[0]||"").toString().padStart(2,' ');
+            var b2 = (vals[1]||"").toString().padStart(2,' ');
+            for(var i=0; i<2; i++) { 
+                if(refs.b1[i]) refs.b1[i].textContent = b1[i]; 
+                if(refs.b2[i]) refs.b2[i].textContent = b2[i]; 
+            }
+            for(var r=0; r<4; r++) {
+                for(var c=0; c<3; c++) {
+                    var v = (vals[ROWS[r][c][1]]||"").toString().slice(-3).padStart(3,' ');
+                    var lEl = document.getElementById('l-'+r+'-'+c);
+                    if(lEl) lEl.className = v.trim()==="" ? 'label inactive' : 'label';
+                    for(var j=0; j<3; j++) {
+                        if(refs.rows[r][c][j]) refs.rows[r][c][j].textContent = v[j];
+                    }
+                }
+            }
+            document.getElementById('last-update').textContent = "UPDATED: " + new Date().toLocaleTimeString();
         }
 
         function poll() {
-            // CRITICAL: Clear any pending timer before starting a new request
-            if (pollTimer) clearTimeout(pollTimer);
-
-            var x = new XMLHttpRequest();
-            // Set a timeout so the browser doesn't wait forever on a stalled hotspot
-            x.timeout = 2500; 
+            // Cache-busting is handled by the "?t=" at the end of the URL
+            var url = (isUsingLocal ? LOCAL_URL : NPOINT_URL) + "?t=" + Date.now();
             
-            var target = isUsingLocal ? LOCAL_URL : CLOUD_URL;
-            // Cache buster ?t= prevents the phone from serving old data
-            x.open('GET', target + '?t=' + new Date().getTime(), true);
-
-            x.onreadystatechange = function() {
+            x.abort(); 
+            x.open('GET', url, true);
+            x.timeout = 2500;
+        
+            x.onreadystatechange = function () {
                 if (x.readyState === 4) {
                     if (x.status === 200) {
-                        try {
-                            var data = JSON.parse(x.responseText);
-                            updateUI(data);
-                            flash(isUsingLocal ? 'local' : 'cloud');
-                            
-                            // If we're in cloud mode, try to "sneak" back to local
-                            if (!isUsingLocal) {
-                                console.log("Success! Reverting to Local mode.");
-                                isUsingLocal = true;
-                                currentInterval = LOCAL_SPEED;
-                            }
-                        } catch(e) { console.error("Parse Error"); }
-                    } else {
-                        // Status was not 200 (e.g. 404, 500, or 0)
-                        handleNetworkError();
+                        try { 
+                            render(JSON.parse(x.responseText)); 
+                            flash(isUsingLocal ? 'local' : 'cloud'); 
+                        } catch (e) { flash('error'); }
+                    } else if (isUsingLocal) {
+                        // If local fails (status 0 or 404), flip to cloud
+                        console.log("Local fail, switching to cloud...");
+                        isUsingLocal = false; 
+                        currentInterval = CLOUD_SPEED;
                     }
-                    // ONLY start the next timer once this request is completely finished
-                    scheduleNext();
+                    
+                    // Re-schedule next poll
+                    clearTimeout(pollTimer);
+                    pollTimer = setTimeout(poll, currentInterval);
                 }
             };
-
-            x.onerror = function() { handleNetworkError(); scheduleNext(); };
-            x.ontimeout = function() { handleNetworkError(); scheduleNext(); };
-
-            function handleNetworkError() {
-                if (isUsingLocal) {
-                    console.warn("Local server failed. Switching to Cloud.");
-                    isUsingLocal = false;
-                    currentInterval = CLOUD_SPEED;
+        
+            x.onerror = function() { 
+                if(isUsingLocal) { 
+                    isUsingLocal = false; 
+                    currentInterval = CLOUD_SPEED; 
+                    clearTimeout(pollTimer);
+                    pollTimer = setTimeout(poll, currentInterval);
                 }
-            }
-
-            function scheduleNext() {
-                // Ensure we don't stack up multiple timers
-                clearTimeout(pollTimer);
-                pollTimer = setTimeout(poll, currentInterval);
-            }
-
-            x.send();
+            };
+            
+            x.send(); // No custom headers here = No Preflight issues!
         }
-
+        
         function flash(t) {
             var dot = document.getElementById('status-dot');
             if (!dot) return;
@@ -160,13 +212,9 @@
             setTimeout(function() { dot.classList.remove('dot-active'); }, 500);
         }
 
-        function tickClock() {
-            // Reserved for your clock logic if added later
-        }
-
+        // Auto-hide fullscreen button
         function initFsLogic() {
             var btn = document.getElementById('fs-btn');
-            if(!btn) return;
             btn.onclick = function() {
                 var e = document.documentElement;
                 var rfs = e.requestFullscreen || e.webkitRequestFullScreen || e.mozRequestFullScreen || e.msRequestFullscreen;
@@ -180,7 +228,6 @@
             }, 10000);
         }
 
-        // START
         initUI();
         initFsLogic();
         setInterval(tickClock, 1000);
