@@ -51,9 +51,14 @@
     <script>
         var SCRIPT_URL = "https://script.google.com/macros/s/AKfycby4gf4zULR-cQzekmZpXoBs5txrVYr7TJIQWCcwfbwkVy1uqrpz1aniyvkweHTfRbue/exec";
 
-        // Get region from URL (e.g., ?H), default to 'A'
-        // We take the first character of the search string to be safe
-        var region = window.location.search.substring(1).charAt(0).toUpperCase() || "A";
+        // 1. Get the part after the '?' (e.g., 'H')
+        var queryString = window.location.search.substring(1); 
+        
+        // 2. Take only the first character and make it Uppercase
+        // If the string is empty (no ?), default to 'A'
+        var region = (queryString.length > 0) ? queryString.charAt(0).toUpperCase() : "A";
+        
+        // 3. Update the display so you can see it's working
         document.getElementById('reg-label').innerHTML = region;
 
         function formatTime(iso) {
@@ -134,10 +139,10 @@
 
         function fetchData() {
             var xhr = new XMLHttpRequest();
-            // Passing region to the GS script
             var fetchUrl = SCRIPT_URL + "?region=" + region + "&t=" + new Date().getTime();
             
             xhr.open("GET", fetchUrl, true);
+            
             xhr.onreadystatechange = function () {
                 if (xhr.readyState == 4 && xhr.status == 200) {
                     try {
