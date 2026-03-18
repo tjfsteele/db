@@ -16,7 +16,7 @@
         
         #price-main { margin-top: 10px; }
         #price { font-size: 140px; font-weight: bold; line-height: 0.8; }
-        #unit { font-size: 24px; margin-bottom: 5px; }
+        #unit { font-size: 24px; margin-bottom: 5px; color: #555; }
         
         #next-container { 
             font-size: 32px; border-top: 5px solid #000; 
@@ -24,31 +24,13 @@
         }
 
         #graph-wrapper { 
-            height: 100px; 
-            width: 500px; 
-            margin: 20px auto; 
-            border-bottom: 2px solid #000; 
-            padding: 0;
-            overflow: hidden;
-            text-align: left; 
-            white-space: nowrap;
+            height: 100px; width: 500px; margin: 20px auto; 
+            border-bottom: 2px solid #000; padding: 0;
+            overflow: hidden; text-align: left; white-space: nowrap;
         }
         
-        .bar { 
-            background: #000; 
-            width: 8px; 
-            margin-right: 2px;
-            display: inline-block;
-            vertical-align: bottom;
-        }
-        
-        .bar.current { 
-            background: #fff; 
-            border: 1px solid #000; 
-            width: 6px; 
-        }
-
-        #debug { display: none; font-size: 10px; text-align: left; }
+        .bar { background: #000; width: 8px; margin-right: 2px; display: inline-block; vertical-align: bottom; }
+        .bar.current { background: #fff; border: 1px solid #000; width: 6px; }
     </style>
 </head>
 <body>
@@ -57,7 +39,7 @@
     
     <div id="price-main">
         <div id="price">--.-</div>
-        <div id="unit">p/kWh</div>
+        <div id="unit">p/kWh (Region <span id="reg-label">-</span>)</div>
     </div>
 
     <div id="next-container">
@@ -66,13 +48,13 @@
 
     <div id="graph-wrapper"></div>
 
-    <div id="debug"></div>
-
     <script>
         var SCRIPT_URL = "https://script.google.com/macros/s/AKfycby4gf4zULR-cQzekmZpXoBs5txrVYr7TJIQWCcwfbwkVy1uqrpz1aniyvkweHTfRbue/exec";
 
-        // 1. Get region from URL (e.g., ?H), default to 'A'
-        var region = window.location.search.substring(1).toUpperCase() || "A";
+        // Get region from URL (e.g., ?H), default to 'A'
+        // We take the first character of the search string to be safe
+        var region = window.location.search.substring(1).charAt(0).toUpperCase() || "A";
+        document.getElementById('reg-label').innerHTML = region;
 
         function formatTime(iso) {
             var d = new Date(iso);
@@ -82,8 +64,10 @@
         }
 
         function updateUI() {
-            // Include region in the cache key so switching regions forces a re-fetch
-            var cached = localStorage.getItem('agile_data_' + region);
+            // Use region-specific key to avoid cross-region cache pollution
+            var cacheKey = 'agile_data_' + region;
+            var cached = localStorage.getItem(cacheKey);
+            
             if (!cached) { fetchData(); return; }
 
             try {
@@ -127,7 +111,6 @@
         function drawGraph(data, currentIdx) {
             var wrapper = document.getElementById('graph-wrapper');
             wrapper.innerHTML = ''; 
-            
             var start = Math.max(0, currentIdx - 15); 
             var end = Math.min(data.length, start + 50);
             
@@ -141,19 +124,17 @@
                 var bar = document.createElement('div');
                 bar.className = 'bar';
                 if (i === currentIdx) bar.className += ' current';
-                
                 var val = data[i].v;
                 if (val < 0) val = 0; 
                 var hPx = Math.floor((val / maxPrice) * 100);
                 bar.style.height = Math.max(hPx, 2) + 'px';
-                
                 wrapper.appendChild(bar);
             }
         }
 
         function fetchData() {
             var xhr = new XMLHttpRequest();
-            // 2. Pass the region parameter to the Google Script
+            // Passing region to the GS script
             var fetchUrl = SCRIPT_URL + "?region=" + region + "&t=" + new Date().getTime();
             
             xhr.open("GET", fetchUrl, true);
