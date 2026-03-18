@@ -23,7 +23,6 @@
             padding-top: 15px; width: 85%; margin: 0 auto; 
         }
 
-        /* Kobo-Safe Pixel-Based Graph */
         #graph-wrapper { 
             height: 100px; 
             width: 500px; 
@@ -46,7 +45,7 @@
         .bar.current { 
             background: #fff; 
             border: 1px solid #000; 
-            width: 6px; /* Adjusted for border */
+            width: 6px; 
         }
 
         #debug { display: none; font-size: 10px; text-align: left; }
@@ -72,6 +71,9 @@
     <script>
         var SCRIPT_URL = "https://script.google.com/macros/s/AKfycby4gf4zULR-cQzekmZpXoBs5txrVYr7TJIQWCcwfbwkVy1uqrpz1aniyvkweHTfRbue/exec";
 
+        // 1. Get region from URL (e.g., ?H), default to 'A'
+        var region = window.location.search.substring(1).toUpperCase() || "A";
+
         function formatTime(iso) {
             var d = new Date(iso);
             var h = d.getHours();
@@ -80,12 +82,12 @@
         }
 
         function updateUI() {
-            var cached = localStorage.getItem('agile_data');
+            // Include region in the cache key so switching regions forces a re-fetch
+            var cached = localStorage.getItem('agile_data_' + region);
             if (!cached) { fetchData(); return; }
 
             try {
                 var schedule = JSON.parse(cached);
-                // Ensure chronological order
                 schedule.sort(function(a, b) { 
                     return new Date(a.s).getTime() - new Date(b.s).getTime(); 
                 });
@@ -112,7 +114,6 @@
                     
                     drawGraph(schedule, foundIdx);
 
-                    // Re-fetch if we are in the last 4 hours of our 50-slot window
                     var lastSlot = new Date(schedule[schedule.length - 1].s).getTime();
                     if (now > (lastSlot - 14400000)) fetchData();
                 } else {
@@ -127,7 +128,6 @@
             var wrapper = document.getElementById('graph-wrapper');
             wrapper.innerHTML = ''; 
             
-            // Show 50 slots (roughly 25 hours)
             var start = Math.max(0, currentIdx - 15); 
             var end = Math.min(data.length, start + 50);
             
@@ -142,9 +142,8 @@
                 bar.className = 'bar';
                 if (i === currentIdx) bar.className += ' current';
                 
-                // Set height in pixels (max 100px)
                 var val = data[i].v;
-                if (val < 0) val = 0; // Simple floor for negative prices
+                if (val < 0) val = 0; 
                 var hPx = Math.floor((val / maxPrice) * 100);
                 bar.style.height = Math.max(hPx, 2) + 'px';
                 
@@ -154,14 +153,15 @@
 
         function fetchData() {
             var xhr = new XMLHttpRequest();
-            // Cache buster to ensure fresh data from Google
-            xhr.open("GET", SCRIPT_URL + "?t=" + new Date().getTime(), true);
+            // 2. Pass the region parameter to the Google Script
+            var fetchUrl = SCRIPT_URL + "?region=" + region + "&t=" + new Date().getTime();
+            
+            xhr.open("GET", fetchUrl, true);
             xhr.onreadystatechange = function () {
                 if (xhr.readyState == 4 && xhr.status == 200) {
                     try {
-                        // Basic validation before saving
                         if (xhr.responseText.indexOf('[') === 0) {
-                            localStorage.setItem('agile_data', xhr.responseText);
+                            localStorage.setItem('agile_data_' + region, xhr.responseText);
                             updateUI();
                         }
                     } catch(e) {}
@@ -170,7 +170,6 @@
             xhr.send();
         }
 
-        // Start
         updateUI();
     </script>
 </body>
