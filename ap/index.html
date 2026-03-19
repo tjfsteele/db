@@ -51,14 +51,8 @@
     <script>
         var SCRIPT_URL = "https://script.google.com/macros/s/AKfycby4gf4zULR-cQzekmZpXoBs5txrVYr7TJIQWCcwfbwkVy1uqrpz1aniyvkweHTfRbue/exec";
 
-        // 1. Get the part after the '?' (e.g., 'H')
         var queryString = window.location.search.substring(1); 
-        
-        // 2. Take only the first character and make it Uppercase
-        // If the string is empty (no ?), default to 'A'
         var region = (queryString.length > 0) ? queryString.charAt(0).toUpperCase() : "A";
-        
-        // 3. Update the display so you can see it's working
         document.getElementById('reg-label').innerHTML = region;
 
         function formatTime(iso) {
@@ -69,11 +63,16 @@
         }
 
         function updateUI() {
-            // Use region-specific key to avoid cross-region cache pollution
             var cacheKey = 'agile_data_' + region;
+            var attemptKey = 'last_attempt_' + region;
             var cached = localStorage.getItem(cacheKey);
-            
-            if (!cached) { fetchData(); return; }
+            var lastAttempt = parseInt(localStorage.getItem(attemptKey)) || 0;
+            var now = new Date().getTime();
+
+            if (!cached) {
+                fetchData();
+                return;
+            }
 
             try {
                 var schedule = JSON.parse(cached);
@@ -81,9 +80,7 @@
                     return new Date(a.s).getTime() - new Date(b.s).getTime(); 
                 });
 
-                var now = new Date().getTime();
                 var foundIdx = -1;
-
                 for (var i = 0; i < schedule.length; i++) {
                     var start = new Date(schedule[i].s).getTime();
                     var end = new Date(schedule[i].e).getTime();
@@ -103,9 +100,23 @@
                     
                     drawGraph(schedule, foundIdx);
 
-                    var lastSlot = new Date(schedule[schedule.length - 1].s).getTime();
-                    if (now > (lastSlot - 14400000)) fetchData();
+                    // --- REFRESH LOGIC ---
+                    var thirtyMins = 30 * 60 * 1000;
+                    var lastSlotStart = new Date(schedule[schedule.length - 1].s).getTime();
+                    var currentHour = new Date().getHours();
+                    
+                    // Define "Tonight at 11 PM"
+                    var tonight = new Date();
+                    tonight.setHours(23, 0, 0, 0);
+
+                    // If after 4pm AND we don't have tomorrow's prices yet
+                    if (currentHour >= 16 && lastSlotStart < tonight.getTime()) {
+                        if (now - lastAttempt > thirtyMins) {
+                            fetchData();
+                        }
+                    }
                 } else {
+                    // Current time not found in data (data is old/exhausted)
                     fetchData();
                 }
             } catch (e) {
@@ -138,11 +149,13 @@
         }
 
         function fetchData() {
+            var attemptKey = 'last_attempt_' + region;
+            localStorage.setItem(attemptKey, new Date().getTime().toString());
+
             var xhr = new XMLHttpRequest();
             var fetchUrl = SCRIPT_URL + "?region=" + region + "&t=" + new Date().getTime();
             
             xhr.open("GET", fetchUrl, true);
-            
             xhr.onreadystatechange = function () {
                 if (xhr.readyState == 4 && xhr.status == 200) {
                     try {
