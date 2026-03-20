@@ -90,48 +90,60 @@
             document.body.appendChild(s);
         }
     
-        function drawGraph(schedule, currentIdx) {
-            var graph = document.getElementById('graph-wrapper');
-            var labels = document.getElementById('labels-wrapper');
-            graph.innerHTML = '';
-            labels.innerHTML = '';
-        
-            // Show 8 bars (4 hours) in the past and 32 bars (16 hours) in the future
-            var start = Math.max(0, currentIdx - 8);
-            var end = Math.min(schedule.length, start + 40);
-        
-            for (var i = start; i < end; i++) {
-                var item = schedule[i];
-                
-                // Price Bar
-                var bar = document.createElement('div');
-                bar.className = 'bar' + (i === currentIdx ? ' current' : '');
-                var h = Math.max(2, Math.min(100, item.v * 2)); 
-                bar.style.height = h + 'px';
-                graph.appendChild(bar);
-        
-                // Hour Label (only on the hour)
-                var label = document.createElement('div');
-                label.className = 'hour-label';
-                var d = new Date(item.s);
-                if (d.getMinutes() === 0) { // Shows label when it's exactly XX:00
-                    label.innerHTML = d.getHours();
-                }
-                labels.appendChild(label);
-            }
-        }
-    
+        // This handles the data returned by your Google Script 
         function handleAgileData(data) {
             if (data && Array.isArray(data)) {
-                // FORCE SORT: Ensure Left-to-Right chronology 
-                // by comparing the start strings directly 
+                // FORCE CHRONOLOGICAL SORT: Compare strings directly (very reliable)
                 data.sort(function(a, b) {
                     return a.s.localeCompare(b.s);
                 });
                 
                 localStorage.setItem('agile_data_' + region, JSON.stringify(data));
-                log("Data sorted & saved");
+                log("JSONP Success! Sorted " + data.length + " rows.");
                 updateUI();
+            } else {
+                log("JSONP Error: Data format unexpected");
+            }
+        }
+        
+        function drawGraph(schedule, currentIdx) {
+            var wrapper = document.getElementById('graph-wrapper');
+            wrapper.innerHTML = '';
+            
+            // Window: 8 slots before (4 hours) and 32 slots after (16 hours)
+            var startIdx = Math.max(0, currentIdx - 8); 
+            var endIdx = Math.min(schedule.length, startIdx + 40);
+        
+            for (var i = startIdx; i < endIdx; i++) {
+                var item = schedule[i];
+                var barContainer = document.createElement('div');
+                barContainer.style.display = "inline-block";
+                barContainer.style.textAlign = "center";
+                barContainer.style.width = "12px";
+        
+                var bar = document.createElement('div');
+                bar.className = 'bar' + (i === currentIdx ? ' current' : '');
+                
+                // Height scaling
+                var val = Math.max(0, item.v); 
+                var height = Math.max(2, Math.min(100, val * 2)); 
+                bar.style.height = height + 'px';
+                bar.style.width = "10px";
+                bar.style.verticalAlign = "bottom";
+        
+                // Label: Just the hour number, only on the hour
+                var label = document.createElement('div');
+                label.style.fontSize = "10px";
+                var d = new Date(item.s);
+                if (d.getMinutes() === 0) {
+                    label.innerHTML = d.getHours();
+                } else {
+                    label.innerHTML = "&nbsp;";
+                }
+        
+                barContainer.appendChild(bar);
+                barContainer.appendChild(label);
+                wrapper.appendChild(barContainer);
             }
         }
         
