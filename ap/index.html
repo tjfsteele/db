@@ -11,26 +11,36 @@
             display: flex; flex-direction: column; justify-content: space-between; height: 95vh;
             overflow: hidden;
         }
-        
         #slot-time { font-size: 28px; margin-top: 20px; font-weight: normal; }
-        
         #price-main { margin-top: 10px; }
         #price { font-size: 140px; font-weight: bold; line-height: 0.8; }
         #unit { font-size: 24px; margin-bottom: 5px; color: #555; }
-        
         #next-container { 
             font-size: 32px; border-top: 5px solid #000; 
             padding-top: 15px; width: 85%; margin: 0 auto; 
         }
-
+    
+        /* Graph Container */
+        #graph-container { margin: 20px auto; width: 500px; }
         #graph-wrapper { 
-            height: 100px; width: 500px; margin: 20px auto; 
-            border-bottom: 2px solid #000; padding: 0;
-            overflow: hidden; text-align: left; white-space: nowrap;
+            height: 100px; border-bottom: 2px solid #000; 
+            display: flex; align-items: flex-end; justify-content: center;
+        }
+        #labels-wrapper { 
+            height: 20px; display: flex; justify-content: center; margin-top: 5px;
         }
         
-        .bar { background: #000; width: 8px; margin-right: 2px; display: inline-block; vertical-align: bottom; }
-        .bar.current { background: #fff; border: 1px solid #000; width: 6px; }
+        .bar { background: #000; width: 8px; margin: 0 1px; }
+        .bar.current { 
+            background: #fff !important; 
+            border: 2px solid #000; 
+            width: 10px; 
+            height: 100px !important; 
+        }
+        .hour-label { 
+            width: 10px; margin: 0 1px; font-size: 9px; color: #666; 
+            transform: rotate(-90deg); white-space: nowrap;
+        }
     </style>
 </head>
 <body>
@@ -42,12 +52,15 @@
     <div id="next-container">
         Next: <strong><span id="next-price">--</span>p/kWh</strong>
     </div>
-    <div id="graph-wrapper"></div>
+    <div id="graph-container">
+        <div id="graph-wrapper"></div>
+        <div id="labels-wrapper"></div>
+    </div>
 
     <div id="debug-log" style="font-size: 12px; color: #666; text-align: left; margin: 10px; border-top: 1px dashed #ccc; padding-top: 5px;">
         Init...
     </div>
-    
+        
     <script>
         var SCRIPT_URL = "https://script.google.com/macros/s/AKfycby4gf4zULR-cQzekmZpXoBs5txrVYr7TJIQWCcwfbwkVy1uqrpz1aniyvkweHTfRbue/exec";
     
@@ -57,7 +70,7 @@
     
         function log(msg) {
             var d = new Date();
-            var time = d.getHours() + ":" + d.getMinutes() + ":" + d.getSeconds();
+            var time = d.getHours() + ":" + (d.getMinutes() < 10 ? '0' : '') + d.getMinutes();
             document.getElementById('debug-log').innerHTML = time + " - " + msg;
         }
     
@@ -68,80 +81,67 @@
             return (h < 10 ? '0' : '') + h + ":" + (m < 10 ? '0' : '') + m;
         }
     
-        // This handles the data returned by your Google Script 
-        // 1. Add this NEW function to handle the data when it arrives
+        // --- JSONP CALLBACK (The 'First Bit') ---
         function handleAgileData(data) {
             if (data && Array.isArray(data)) {
-                localStorage.setItem('agile_data_' + region, JSON.stringify(data));
-                log("JSONP Success! Received " + data.length + " rows.");
+                localStorage.setItem('agile_data_' + region, JSON.stringify(data)); [cite: 8]
+                log("Success: Received " + data.length + " slots.");
                 updateUI();
             } else {
-                log("JSONP Error: Data format unexpected");
+                log("Error: Data format unexpected");
             }
         }
-        
-        // 2. REPLACE your fetchData function with this one
+    
         function fetchData() {
             var attemptKey = 'last_attempt_' + region;
             localStorage.setItem(attemptKey, new Date().getTime().toString());
-        
-            log("Requesting via JSONP...");
-        
-            // Remove any old script tags from previous attempts
+    
+            log("Fetching " + region + " via JSONP...");
+    
             var oldScript = document.getElementById('jsonp-request');
             if (oldScript) oldScript.parentNode.removeChild(oldScript);
-        
-            // Create a script tag to bypass CORS
+    
             var script = document.createElement('script');
             script.id = 'jsonp-request';
+            // This sends the 'callback' name to your Google Script [cite: 1]
+            script.src = SCRIPT_URL + "?region=" + region + "&callback=handleAgileData&t=" + new Date().getTime();
             
-            // We add &callback=handleAgileData so gs.txt knows how to wrap the response 
-            var fetchUrl = SCRIPT_URL + "?region=" + region + 
-                           "&callback=handleAgileData" + 
-                           "&t=" + new Date().getTime() + 
-                           "&nocache=" + Math.random();
-            
-            script.src = fetchUrl;
-        
-            script.onerror = function() {
-                log("JSONP Script blocked or failed.");
-            };
-        
+            script.onerror = function() { log("Network Error (JSONP failed)"); };
             document.body.appendChild(script);
         }
+    
         function drawGraph(schedule, currentIdx) {
-            var wrapper = document.getElementById('graph-wrapper');
-            wrapper.innerHTML = '';
-            
-            // We want the current bar to be roughly in the middle.
-            // 12 bars before (6 hours) and 28 bars after (14 hours).
-            var startIdx = Math.max(0, currentIdx - 12); 
-            var endIdx = Math.min(schedule.length, startIdx + 40);
-        
-            for (var i = startIdx; i < endIdx; i++) {
+            var graph = document.getElementById('graph-wrapper');
+            var labels = document.getElementById('labels-wrapper');
+            graph.innerHTML = '';
+            labels.innerHTML = '';
+    
+            // Windowing: Show 10 slots before and 30 after current
+            var start = Math.max(0, currentIdx - 10);
+            var end = Math.min(schedule.length, start + 40);
+    
+            for (var i = start; i < end; i++) {
                 var item = schedule[i];
+                
+                // 1. Create Bar
                 var bar = document.createElement('div');
-                
-                // Use a 2px border for the 'current' bar so it doesn't disappear on E-ink
-                if (i === currentIdx) {
-                    bar.className = 'bar current';
-                    bar.style.border = "2px solid #000";
-                    bar.style.backgroundColor = "#fff";
-                } else {
-                    bar.className = 'bar';
-                    bar.style.backgroundColor = "#000";
-                }
-                
-                // Scale height: 1p = 2px. 
-                // We use Math.max(2...) so even 0p prices show a tiny sliver.
+                bar.className = 'bar' + (i === currentIdx ? ' current' : '');
                 var val = Math.max(0, item.v); 
-                var height = Math.max(2, Math.min(100, val * 2)); 
-                
-                bar.style.height = height + 'px';
-                wrapper.appendChild(bar);
+                var h = Math.max(2, Math.min(100, val * 2));
+                bar.style.height = h + 'px';
+                graph.appendChild(bar);
+    
+                // 2. Create Label (Every 2nd slot / 1 hour)
+                var label = document.createElement('div');
+                label.className = 'hour-label';
+                if (i % 2 === 0) {
+                    var d = new Date(item.s);
+                    label.innerHTML = d.getHours() + ":00";
+                }
+                labels.appendChild(label);
             }
         }
-        
+    
         function updateUI() {
             var cacheKey = 'agile_data_' + region;
             var attemptKey = 'last_attempt_' + region;
@@ -150,15 +150,16 @@
             var now = new Date().getTime();
     
             if (!cached) {
-                log("No cache found. Fetching...");
+                log("No cache. Fetching...");
                 fetchData();
                 return;
             }
     
             try {
                 var schedule = JSON.parse(cached);
-                
                 var foundIdx = -1;
+    
+                // Loop through sorted data to find current slot 
                 for (var i = 0; i < schedule.length; i++) {
                     var start = new Date(schedule[i].s).getTime();
                     var end = new Date(schedule[i].e).getTime();
@@ -176,17 +177,18 @@
                     var nextVal = schedule[foundIdx + 1] ? schedule[foundIdx + 1].v.toFixed(1) : "--";
                     document.getElementById('next-price').innerHTML = nextVal;
                     
-                    // Now drawGraph is definitely defined!
                     drawGraph(schedule, foundIdx);
                 }
     
+                // --- RESTORED REFRESH LOGIC ---
                 var lastEntry = new Date(schedule[schedule.length - 1].e);
                 var isDataOnlyForToday = (lastEntry.getDate() === new Date().getDate());
                 var isAfter4PM = (new Date().getHours() >= 16);
                 
+                // If it's past 4pm and we don't have tomorrow's data yet
                 if ((isAfter4PM && isDataOnlyForToday) || foundIdx === -1) {
-                    if (now - lastAttempt > 5 * 60 * 1000) {
-                        log("Attempting fetch for tomorrow...");
+                    if (now - lastAttempt > 10 * 60 * 1000) { // Check every 10 mins
+                        log("Checking for tomorrow's prices...");
                         fetchData();
                     }
                 }
