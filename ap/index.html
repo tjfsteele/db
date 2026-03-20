@@ -84,7 +84,7 @@
         // --- JSONP CALLBACK (The 'First Bit') ---
         function handleAgileData(data) {
             if (data && Array.isArray(data)) {
-                localStorage.setItem('agile_data_' + region, JSON.stringify(data)); [cite: 8]
+                localStorage.setItem('agile_data_' + region, JSON.stringify(data)); 
                 log("Success: Received " + data.length + " slots.");
                 updateUI();
             } else {
