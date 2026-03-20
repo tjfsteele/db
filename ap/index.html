@@ -101,19 +101,16 @@
                     drawGraph(schedule, foundIdx);
 
                     // --- IMPROVED REFRESH LOGIC ---
-                    var thirtyMins = 30 * 60 * 1000;
-                    var currentHour = new Date().getHours();
-                    var dataLength = schedule.length;
-                    var lastSlotEnd = new Date(schedule[dataLength - 1].e).getTime();
+                    // Check if the latest date in our data is today or tomorrow
+                    var lastDate = new Date(schedule[schedule.length - 1].e).getDate();
+                    var tomorrowDate = new Date(now + 24 * 60 * 60 * 1000).getDate();
                     
-                    // 1. If we are currently in the last 4 hours of our known data, 
-                    // OR 2. If it's after 4 PM and our data doesn't extend into tomorrow (next 12+ hours)
-                    var needsMoreData = (lastSlotEnd - now < 4 * 60 * 60 * 1000) || 
-                                        (currentHour >= 16 && lastSlotEnd < (now + 12 * 60 * 60 * 1000));
+                    // If it's after 4pm and we don't have tomorrow's date in the data yet
+                    var isEvening = (new Date().getHours() >= 16);
+                    var missingTomorrow = (lastDate !== tomorrowDate);
                     
-                    if (needsMoreData) {
-                        if (now - lastAttempt > thirtyMins) {
-                            console.log("Data expiring soon or new prices released. Fetching...");
+                    if (foundIdx === -1 || (isEvening && missingTomorrow)) {
+                        if (now - lastAttempt > 15 * 60 * 1000) { // Dropped to 15 mins
                             fetchData();
                         }
                     }
