@@ -100,18 +100,20 @@
                     
                     drawGraph(schedule, foundIdx);
 
-                    // --- REFRESH LOGIC ---
+                    // --- IMPROVED REFRESH LOGIC ---
                     var thirtyMins = 30 * 60 * 1000;
-                    var lastSlotStart = new Date(schedule[schedule.length - 1].s).getTime();
                     var currentHour = new Date().getHours();
+                    var dataLength = schedule.length;
+                    var lastSlotEnd = new Date(schedule[dataLength - 1].e).getTime();
                     
-                    // Define "Tonight at 11 PM"
-                    var tonight = new Date();
-                    tonight.setHours(23, 0, 0, 0);
-
-                    // If after 4pm AND we don't have tomorrow's prices yet
-                    if (currentHour >= 16 && lastSlotStart < tonight.getTime()) {
+                    // 1. If we are currently in the last 4 hours of our known data, 
+                    // OR 2. If it's after 4 PM and our data doesn't extend into tomorrow (next 12+ hours)
+                    var needsMoreData = (lastSlotEnd - now < 4 * 60 * 60 * 1000) || 
+                                        (currentHour >= 16 && lastSlotEnd < (now + 12 * 60 * 60 * 1000));
+                    
+                    if (needsMoreData) {
                         if (now - lastAttempt > thirtyMins) {
+                            console.log("Data expiring soon or new prices released. Fetching...");
                             fetchData();
                         }
                     }
