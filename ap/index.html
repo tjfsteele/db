@@ -113,8 +113,8 @@
             var wrapper = document.getElementById('graph-wrapper');
             wrapper.innerHTML = '';
             
-            // Show 12 slots before current and 28 slots after (40 total)
-            // This ensures the current bar isn't always at the far left
+            // We want the current bar to be roughly in the middle.
+            // 12 bars before (6 hours) and 28 bars after (14 hours).
             var startIdx = Math.max(0, currentIdx - 12); 
             var endIdx = Math.min(schedule.length, startIdx + 40);
         
@@ -122,17 +122,26 @@
                 var item = schedule[i];
                 var bar = document.createElement('div');
                 
-                // Match the bar to the current index found in updateUI
-                bar.className = 'bar' + (i === currentIdx ? ' current' : '');
+                // Use a 2px border for the 'current' bar so it doesn't disappear on E-ink
+                if (i === currentIdx) {
+                    bar.className = 'bar current';
+                    bar.style.border = "2px solid #000";
+                    bar.style.backgroundColor = "#fff";
+                } else {
+                    bar.className = 'bar';
+                    bar.style.backgroundColor = "#000";
+                }
                 
-                // Octopus Agile prices can be negative; handle that or cap at 0 for height
+                // Scale height: 1p = 2px. 
+                // We use Math.max(2...) so even 0p prices show a tiny sliver.
                 var val = Math.max(0, item.v); 
-                var height = Math.min(100, val * 2); // 1p = 2px
+                var height = Math.max(2, Math.min(100, val * 2)); 
                 
                 bar.style.height = height + 'px';
                 wrapper.appendChild(bar);
             }
         }
+        
         function updateUI() {
             var cacheKey = 'agile_data_' + region;
             var attemptKey = 'last_attempt_' + region;
