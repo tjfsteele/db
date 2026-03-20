@@ -47,7 +47,7 @@
     <div id="debug-log" style="font-size: 12px; color: #666; text-align: left; margin: 10px; border-top: 1px dashed #ccc; padding-top: 5px;">
         Init...
     </div>
-
+    
     <script>
         var SCRIPT_URL = "https://script.google.com/macros/s/AKfycby4gf4zULR-cQzekmZpXoBs5txrVYr7TJIQWCcwfbwkVy1uqrpz1aniyvkweHTfRbue/exec";
     
@@ -68,11 +68,10 @@
             return (h < 10 ? '0' : '') + h + ":" + (m < 10 ? '0' : '') + m;
         }
     
-        // --- NEW CALLBACK FUNCTION ---
-        // This is called automatically when the script loads from Google
+        // This handles the data returned by your Google Script 
         function handleAgileData(data) {
             if (data && Array.isArray(data)) {
-                localStorage.setItem('agile_data_' + region, JSON.stringify(data)); [cite: 8]
+                localStorage.setItem('agile_data_' + region, JSON.stringify(data));
                 log("Callback Success! Received " + data.length + " rows.");
                 updateUI();
             } else {
@@ -86,22 +85,39 @@
     
             log("Requesting JSONP data...");
             
-            // Remove old script tags to prevent memory leaks/clutter
             var oldScript = document.getElementById('jsonp-request');
             if (oldScript) oldScript.parentNode.removeChild(oldScript);
     
-            // Create the JSONP request
             var script = document.createElement('script');
             script.id = 'jsonp-request';
-            // Added &callback=handleAgileData to match the function name above
-            script.src = SCRIPT_URL + "?region=" + region + "&callback=handleAgileData&t=" + new Date().getTime(); [cite: 1, 8]
+            // Passing the 'callback' parameter as required by your gs.txt 
+            script.src = SCRIPT_URL + "?region=" + region + "&callback=handleAgileData&t=" + new Date().getTime();
             
-            // Handle network errors
             script.onerror = function() {
                 log("JSONP Script load failed.");
             };
     
             document.body.appendChild(script);
+        }
+    
+        function drawGraph(schedule, currentIdx) {
+            var wrapper = document.getElementById('graph-wrapper');
+            wrapper.innerHTML = '';
+            
+            // Show a window of prices (current and upcoming) [cite: 4, 7]
+            var startIdx = Math.max(0, currentIdx - 2);
+            var endIdx = Math.min(schedule.length, startIdx + 40);
+    
+            for (var i = startIdx; i < endIdx; i++) {
+                var item = schedule[i];
+                var bar = document.createElement('div');
+                bar.className = 'bar' + (i === currentIdx ? ' current' : '');
+                
+                // Scale height: 1p = 2px (capped at 100px) 
+                var height = Math.max(2, Math.min(100, item.v * 2));
+                bar.style.height = height + 'px';
+                wrapper.appendChild(bar);
+            }
         }
     
         function updateUI() {
@@ -118,9 +134,8 @@
             }
     
             try {
-                var schedule = JSON.parse(cached); [cite: 7, 8]
-                log("Data: " + schedule.length + " rows.");
-    
+                var schedule = JSON.parse(cached);
+                
                 var foundIdx = -1;
                 for (var i = 0; i < schedule.length; i++) {
                     var start = new Date(schedule[i].s).getTime();
@@ -135,12 +150,14 @@
                     var current = schedule[foundIdx];
                     document.getElementById('price').innerHTML = current.v.toFixed(1);
                     document.getElementById('slot-time').innerHTML = formatTime(current.s) + " - " + formatTime(current.e);
+                    
                     var nextVal = schedule[foundIdx + 1] ? schedule[foundIdx + 1].v.toFixed(1) : "--";
                     document.getElementById('next-price').innerHTML = nextVal;
-                    if (typeof drawGraph === "function") drawGraph(schedule, foundIdx);
+                    
+                    // Now drawGraph is definitely defined!
+                    drawGraph(schedule, foundIdx);
                 }
     
-                // REFRESH LOGIC
                 var lastEntry = new Date(schedule[schedule.length - 1].e);
                 var isDataOnlyForToday = (lastEntry.getDate() === new Date().getDate());
                 var isAfter4PM = (new Date().getHours() >= 16);
@@ -152,7 +169,7 @@
                     }
                 }
             } catch(e) {
-                log("Error parsing JSON: " + e);
+                log("UI Error: " + e.message);
                 fetchData();
             }
         }
