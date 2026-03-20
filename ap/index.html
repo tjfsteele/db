@@ -90,6 +90,7 @@
                     }
                 }
 
+                // Update UI if we have current data
                 if (foundIdx !== -1) {
                     var current = schedule[foundIdx];
                     document.getElementById('price').innerHTML = current.v.toFixed(1);
@@ -99,20 +100,48 @@
                     document.getElementById('next-price').innerHTML = nextVal;
                     
                     drawGraph(schedule, foundIdx);
+                } else {
+                    // Fallback if current slot is missing
+                    document.getElementById('price').innerHTML = "??";
+                }
 
-                    // --- IMPROVED REFRESH LOGIC ---
-                    var lastEntry = new Date(schedule[schedule.length - 1].e);
-                    var isDataOnlyForToday = (lastEntry.getDate() === new Date().getDate());
-                    var isAfter4PM = (new Date().getHours() >= 16);
-                    
-                    // If it's evening and we don't have tomorrow's prices yet, fetch immediately
-                    if (isAfter4PM && isDataOnlyForToday) {
-                        if (now - lastAttempt > 5 * 60 * 1000) { // Check every 5 mins after 4pm
-                            fetchData();
-                        }
+                // --- REFRESH LOGIC (Moved outside foundIdx block) ---
+                var lastEntry = new Date(schedule[schedule.length - 1].e);
+                var todayStr = new Date().toDateString();
+                var isDataOnlyForToday = (lastEntry.toDateString() === todayStr);
+                var isAfter4PM = (new Date().getHours() >= 16);
+                
+                // Fetch if: 1. It's after 4pm and we only have today OR 2. We have NO current data
+                if ((isAfter4PM && isDataOnlyForToday) || foundIdx === -1) {
+                    if (now - lastAttempt > 5 * 60 * 1000) { 
+                        fetchData();
                     }
                 }
+            } catch(e) {
+                // If JSON is corrupt, retry fetch
+                fetchData();
             }
+        }
+
+        function fetchData() {
+            var attemptKey = 'last_attempt_' + region;
+            localStorage.setItem(attemptKey, new Date().getTime().toString());
+
+            var xhr = new XMLHttpRequest();
+            // Added a random 'cb' (cache-buster) to force Kobo to hit the network
+            var cb = Math.floor(Math.random() * 1000);
+            var fetchUrl = SCRIPT_URL + "?region=" + region + "&t=" + new Date().getTime() + "&cb=" + cb;
+            
+            xhr.open("GET", fetchUrl, true);
+            xhr.onreadystatechange = function () {
+                if (xhr.readyState == 4 && xhr.status == 200) {
+                    if (xhr.responseText && xhr.responseText.indexOf('[') === 0) {
+                        localStorage.setItem('agile_data_' + region, xhr.responseText);
+                        updateUI();
+                    }
+                }
+            };
+            xhr.send();
         }
 
         function drawGraph(data, currentIdx) {
@@ -138,28 +167,6 @@
                 wrapper.appendChild(bar);
             }
         }
-
-        function fetchData() {
-            var attemptKey = 'last_attempt_' + region;
-            localStorage.setItem(attemptKey, new Date().getTime().toString());
-
-            var xhr = new XMLHttpRequest();
-            var fetchUrl = SCRIPT_URL + "?region=" + region + "&t=" + new Date().getTime();
-            
-            xhr.open("GET", fetchUrl, true);
-            xhr.onreadystatechange = function () {
-                if (xhr.readyState == 4 && xhr.status == 200) {
-                    try {
-                        if (xhr.responseText.indexOf('[') === 0) {
-                            localStorage.setItem('agile_data_' + region, xhr.responseText);
-                            updateUI();
-                        }
-                    } catch(e) {}
-                }
-            };
-            xhr.send();
-        }
-
         updateUI();
     </script>
 </body>
