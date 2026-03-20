@@ -95,27 +95,26 @@
             var labels = document.getElementById('labels-wrapper');
             graph.innerHTML = '';
             labels.innerHTML = '';
-    
-            // Window: 8 slots in the past (4 hours) to 32 in the future (16 hours)
+        
+            // Show 8 bars (4 hours) in the past and 32 bars (16 hours) in the future
             var start = Math.max(0, currentIdx - 8);
             var end = Math.min(schedule.length, start + 40);
-    
+        
             for (var i = start; i < end; i++) {
                 var item = schedule[i];
                 
-                // 1. Create Bar
+                // Price Bar
                 var bar = document.createElement('div');
                 bar.className = 'bar' + (i === currentIdx ? ' current' : '');
-                var h = Math.max(2, Math.min(100, item.v * 2));
+                var h = Math.max(2, Math.min(100, item.v * 2)); 
                 bar.style.height = h + 'px';
                 graph.appendChild(bar);
-    
-                // 2. Create Label (Just the Hour)
+        
+                // Hour Label (only on the hour)
                 var label = document.createElement('div');
                 label.className = 'hour-label';
-                // Only show labels for every 2nd bar (on the hour)
-                if (i % 2 === 0) {
-                    var d = new Date(item.s);
+                var d = new Date(item.s);
+                if (d.getMinutes() === 0) { // Shows label when it's exactly XX:00
                     label.innerHTML = d.getHours();
                 }
                 labels.appendChild(label);
