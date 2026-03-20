@@ -70,12 +70,17 @@
     
         function handleAgileData(data) {
             if (data && Array.isArray(data)) {
-                // FORCE CHRONOLOGICAL SORT: Compare date strings directly 
+                // FORCE CHRONOLOGICAL SORT: Compare the 's' (start) strings alphabetically
+                // This is the most reliable way to get Left-to-Right on older browsers
                 data.sort(function(a, b) {
                     return a.s.localeCompare(b.s);
                 });
+                
                 localStorage.setItem('agile_data_' + region, JSON.stringify(data));
+                log("Sorted " + data.length + " slots.");
                 updateUI();
+            } else {
+                log("JSONP Error: Data format unexpected");
             }
         }
             
