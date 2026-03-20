@@ -28,12 +28,19 @@
         
         /* Bars: Fixed width to prevent squashing */
         .bar-group { display: flex; flex-direction: column; align-items: center; width: 12px; flex-shrink: 0; }
-        .bar { background: #000; width: 10px; margin: 0 1px; }
+        .bar { 
+            background: #000; 
+            width: 10px; 
+            margin: 0 1px; 
+            display: inline-block; 
+            vertical-align: bottom; 
+        }
+        
         .bar.current { 
             background: #fff !important; 
-            border: 2px solid #000; 
+            border: 3px solid #000 !important; /* Thick border makes it stand out */
             width: 10px; 
-            height: 100px !important; /* Visual playhead */
+            /* Height will now be set by JavaScript based on price */
         }
         .hour-label { font-size: 11px; margin-top: 5px; height: 15px; }
     </style>
@@ -71,39 +78,49 @@
                 updateUI();
             }
         }
-    
+            
         function drawGraph(schedule, currentIdx) {
             var wrapper = document.getElementById('graph-wrapper');
             wrapper.innerHTML = '';
             
-            // Window: 8 slots past to 32 slots future
-            var start = Math.max(0, currentIdx - 8);
-            var end = Math.min(schedule.length, start + 40);
-    
-            for (var i = start; i < end; i++) {
+            // Window: 8 bars before, 32 after
+            var startIdx = Math.max(0, currentIdx - 8); 
+            var endIdx = Math.min(schedule.length, startIdx + 40);
+        
+            for (var i = startIdx; i < endIdx; i++) {
                 var item = schedule[i];
+                
+                // Create the container for bar + label
                 var group = document.createElement('div');
-                group.className = 'bar-group';
-    
-                // 1. Create Bar
+                group.style.display = "inline-block";
+                group.style.width = "12px";
+                group.style.textAlign = "center";
+        
+                // Create the bar
                 var bar = document.createElement('div');
                 bar.className = 'bar' + (i === currentIdx ? ' current' : '');
-                var h = Math.max(2, Math.min(100, item.v * 2)); // 1p = 2px 
-                bar.style.height = h + 'px';
-    
-                // 2. Create Label
+                
+                // Calculate height based on price (v) [cite: 7]
+                // If price is 29.5, height is 59px.
+                var val = Math.max(0, item.v); 
+                var height = Math.max(2, Math.min(100, val * 2)); 
+                bar.style.height = height + 'px';
+        
+                // Create the hour label
                 var label = document.createElement('div');
-                label.className = 'hour-label';
+                label.style.fontSize = "10px";
                 var d = new Date(item.s);
                 if (d.getMinutes() === 0) {
                     label.innerHTML = d.getHours();
+                } else {
+                    label.innerHTML = "&nbsp;";
                 }
-    
+        
                 group.appendChild(bar);
                 group.appendChild(label);
                 wrapper.appendChild(group);
             }
-        } 
+        }
         
         function log(msg) {
             var d = new Date();
