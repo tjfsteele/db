@@ -101,41 +101,17 @@
                     drawGraph(schedule, foundIdx);
 
                     // --- IMPROVED REFRESH LOGIC ---
-                    // --- KOBO-OPTIMIZED REFRESH LOGIC ---
-                    var nowObj = new Date();
-                    var currentHour = nowObj.getHours();
+                    var lastEntry = new Date(schedule[schedule.length - 1].e);
+                    var isDataOnlyForToday = (lastEntry.getDate() === new Date().getDate());
+                    var isAfter4PM = (new Date().getHours() >= 16);
                     
-                    // Get the date of the very last entry in our schedule
-                    var lastEntryEnd = new Date(schedule[schedule.length - 1].e);
-                    var todayDate = nowObj.getDate();
-                    var lastEntryDate = lastEntryEnd.getDate();
-                    
-                    // We need an update if:
-                    // 1. The data we have ends TODAY (meaning tomorrow's prices aren't loaded yet)
-                    // 2. AND it is currently 4 PM or later.
-                    var needsTomorrowData = (lastEntryDate === todayDate) && (currentHour >= 16);
-                    
-                    // Or, a safety check: if we are within 2 hours of running out of data entirely
-                    var runningOut = (lastEntryEnd.getTime() - now < 2 * 60 * 60 * 1000);
-                    
-                    if (needsTomorrowData || runningOut) {
-                        // If we've already tried in the last 15 mins, wait. 
-                        // Otherwise, hunt for that new data.
-                        if (now - lastAttempt > 15 * 60 * 1000) {
-                            console.log("Hunting for tomorrow's prices...");
+                    // If it's evening and we don't have tomorrow's prices yet, fetch immediately
+                    if (isAfter4PM && isDataOnlyForToday) {
+                        if (now - lastAttempt > 5 * 60 * 1000) { // Check every 5 mins after 4pm
                             fetchData();
                         }
-                    } else {
-                        // We already have tomorrow's data, or it's too early for the release.
-                        // The 60-second page refresh will keep checking the time.
-                        console.log("Data is current. Resting.");
                     }
-                } else {
-                    // Current time not found in data (data is old/exhausted)
-                    fetchData();
                 }
-            } catch (e) {
-                fetchData();
             }
         }
 
