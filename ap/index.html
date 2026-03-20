@@ -22,25 +22,20 @@
         /* Graph specific layout */
         #graph-container { margin: 20px auto; width: 520px; }
         #graph-wrapper { 
-            height: 100px; border-bottom: 2px solid #000; 
+            height: 120px; border-bottom: 2px solid #000; 
             display: flex; align-items: flex-end; justify-content: center;
         }
-        #labels-wrapper { 
-            height: 25px; display: flex; justify-content: center; margin-top: 5px;
-        }
         
-        /* Bars: 10px wide with 1px margin */
-        .bar { background: #000; width: 10px; margin: 0 1px; flex-shrink: 0; }
+        /* Bars: Fixed width to prevent squashing */
+        .bar-group { display: flex; flex-direction: column; align-items: center; width: 12px; flex-shrink: 0; }
+        .bar { background: #000; width: 10px; margin: 0 1px; }
         .bar.current { 
             background: #fff !important; 
             border: 2px solid #000; 
-            width: 12px; 
-            height: 100px !important; /* Force full height playhead */
+            width: 10px; 
+            height: 100px !important; /* Visual playhead */
         }
-        .hour-label { 
-            width: 12px; margin: 0 1px; font-size: 12px; color: #000; 
-            text-align: center; flex-shrink: 0;
-        }
+        .hour-label { font-size: 11px; margin-top: 5px; height: 15px; }
     </style>
 </head>
 <body>
@@ -52,21 +47,64 @@
     <div id="next-container">
         Next: <strong><span id="next-price">--</span>p/kWh</strong>
     </div>
+    
     <div id="graph-container">
         <div id="graph-wrapper"></div>
-        <div id="labels-wrapper"></div>
     </div>
 
     <div id="debug-log" style="font-size: 12px; color: #666; text-align: left; margin: 10px; border-top: 1px dashed #ccc; padding-top: 5px;">
         Init...
     </div>
-        
     <script>
         var SCRIPT_URL = "https://script.google.com/macros/s/AKfycby4gf4zULR-cQzekmZpXoBs5txrVYr7TJIQWCcwfbwkVy1uqrpz1aniyvkweHTfRbue/exec";
         var queryString = window.location.search.substring(1); 
         var region = (queryString.length > 0) ? queryString.charAt(0).toUpperCase() : "A";
         document.getElementById('reg-label').innerHTML = region;
     
+        function handleAgileData(data) {
+            if (data && Array.isArray(data)) {
+                // FORCE CHRONOLOGICAL SORT: Compare date strings directly 
+                data.sort(function(a, b) {
+                    return a.s.localeCompare(b.s);
+                });
+                localStorage.setItem('agile_data_' + region, JSON.stringify(data));
+                updateUI();
+            }
+        }
+    
+        function drawGraph(schedule, currentIdx) {
+            var wrapper = document.getElementById('graph-wrapper');
+            wrapper.innerHTML = '';
+            
+            // Window: 8 slots past to 32 slots future
+            var start = Math.max(0, currentIdx - 8);
+            var end = Math.min(schedule.length, start + 40);
+    
+            for (var i = start; i < end; i++) {
+                var item = schedule[i];
+                var group = document.createElement('div');
+                group.className = 'bar-group';
+    
+                // 1. Create Bar
+                var bar = document.createElement('div');
+                bar.className = 'bar' + (i === currentIdx ? ' current' : '');
+                var h = Math.max(2, Math.min(100, item.v * 2)); // 1p = 2px 
+                bar.style.height = h + 'px';
+    
+                // 2. Create Label
+                var label = document.createElement('div');
+                label.className = 'hour-label';
+                var d = new Date(item.s);
+                if (d.getMinutes() === 0) {
+                    label.innerHTML = d.getHours();
+                }
+    
+                group.appendChild(bar);
+                group.appendChild(label);
+                wrapper.appendChild(group);
+            }
+        } 
+        
         function log(msg) {
             var d = new Date();
             var time = d.getHours() + ":" + (d.getMinutes() < 10 ? '0' : '') + d.getMinutes();
@@ -88,63 +126,6 @@
             // Request with callback parameter [cite: 8]
             s.src = SCRIPT_URL + "?region=" + region + "&callback=handleAgileData&t=" + new Date().getTime();
             document.body.appendChild(s);
-        }
-    
-        // This handles the data returned by your Google Script 
-        function handleAgileData(data) {
-            if (data && Array.isArray(data)) {
-                // FORCE CHRONOLOGICAL SORT: Compare strings directly (very reliable)
-                data.sort(function(a, b) {
-                    return a.s.localeCompare(b.s);
-                });
-                
-                localStorage.setItem('agile_data_' + region, JSON.stringify(data));
-                log("JSONP Success! Sorted " + data.length + " rows.");
-                updateUI();
-            } else {
-                log("JSONP Error: Data format unexpected");
-            }
-        }
-        
-        function drawGraph(schedule, currentIdx) {
-            var wrapper = document.getElementById('graph-wrapper');
-            wrapper.innerHTML = '';
-            
-            // Window: 8 slots before (4 hours) and 32 slots after (16 hours)
-            var startIdx = Math.max(0, currentIdx - 8); 
-            var endIdx = Math.min(schedule.length, startIdx + 40);
-        
-            for (var i = startIdx; i < endIdx; i++) {
-                var item = schedule[i];
-                var barContainer = document.createElement('div');
-                barContainer.style.display = "inline-block";
-                barContainer.style.textAlign = "center";
-                barContainer.style.width = "12px";
-        
-                var bar = document.createElement('div');
-                bar.className = 'bar' + (i === currentIdx ? ' current' : '');
-                
-                // Height scaling
-                var val = Math.max(0, item.v); 
-                var height = Math.max(2, Math.min(100, val * 2)); 
-                bar.style.height = height + 'px';
-                bar.style.width = "10px";
-                bar.style.verticalAlign = "bottom";
-        
-                // Label: Just the hour number, only on the hour
-                var label = document.createElement('div');
-                label.style.fontSize = "10px";
-                var d = new Date(item.s);
-                if (d.getMinutes() === 0) {
-                    label.innerHTML = d.getHours();
-                } else {
-                    label.innerHTML = "&nbsp;";
-                }
-        
-                barContainer.appendChild(bar);
-                barContainer.appendChild(label);
-                wrapper.appendChild(barContainer);
-            }
         }
         
         function updateUI() {
