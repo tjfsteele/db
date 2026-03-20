@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="refresh" content="60">
     <title>Agile Tracker</title>
-    <style>
+   <style>
         body { 
             background: white; color: black; font-family: sans-serif; 
             text-align: center; margin: 0; padding: 0;
@@ -20,26 +20,25 @@
             padding-top: 15px; width: 85%; margin: 0 auto; 
         }
     
-        /* Graph Container */
-        #graph-container { margin: 20px auto; width: 500px; }
+        #graph-container { margin: 20px auto; width: 520px; }
         #graph-wrapper { 
             height: 100px; border-bottom: 2px solid #000; 
             display: flex; align-items: flex-end; justify-content: center;
         }
         #labels-wrapper { 
-            height: 20px; display: flex; justify-content: center; margin-top: 5px;
+            height: 25px; display: flex; justify-content: center; margin-top: 5px;
         }
         
-        .bar { background: #000; width: 8px; margin: 0 1px; }
+        .bar { background: #000; width: 10px; margin: 0 1px; flex-shrink: 0; }
         .bar.current { 
             background: #fff !important; 
             border: 2px solid #000; 
-            width: 10px; 
+            width: 12px; 
             height: 100px !important; 
         }
         .hour-label { 
-            width: 10px; margin: 0 1px; font-size: 9px; color: #666; 
-            transform: rotate(-90deg); white-space: nowrap;
+            width: 12px; margin: 0 1px; font-size: 12px; color: #000; 
+            text-align: center; flex-shrink: 0;
         }
     </style>
 </head>
@@ -63,7 +62,6 @@
         
     <script>
         var SCRIPT_URL = "https://script.google.com/macros/s/AKfycby4gf4zULR-cQzekmZpXoBs5txrVYr7TJIQWCcwfbwkVy1uqrpz1aniyvkweHTfRbue/exec";
-    
         var queryString = window.location.search.substring(1); 
         var region = (queryString.length > 0) ? queryString.charAt(0).toUpperCase() : "A";
         document.getElementById('reg-label').innerHTML = region;
@@ -76,38 +74,27 @@
     
         function formatTime(iso) {
             var d = new Date(iso);
-            var h = d.getHours();
-            var m = d.getMinutes();
-            return (h < 10 ? '0' : '') + h + ":" + (m < 10 ? '0' : '') + m;
+            return (d.getHours() < 10 ? '0' : '') + d.getHours() + ":" + (d.getMinutes() < 10 ? '0' : '') + d.getMinutes();
         }
     
-        // --- JSONP CALLBACK (The 'First Bit') ---
         function handleAgileData(data) {
             if (data && Array.isArray(data)) {
-                localStorage.setItem('agile_data_' + region, JSON.stringify(data)); 
-                log("Success: Received " + data.length + " slots.");
+                localStorage.setItem('agile_data_' + region, JSON.stringify(data));
+                log("Data received: " + data.length + " slots");
                 updateUI();
-            } else {
-                log("Error: Data format unexpected");
             }
         }
     
         function fetchData() {
-            var attemptKey = 'last_attempt_' + region;
-            localStorage.setItem(attemptKey, new Date().getTime().toString());
-    
-            log("Fetching " + region + " via JSONP...");
-    
-            var oldScript = document.getElementById('jsonp-request');
-            if (oldScript) oldScript.parentNode.removeChild(oldScript);
-    
-            var script = document.createElement('script');
-            script.id = 'jsonp-request';
-            // This sends the 'callback' name to your Google Script [cite: 1]
-            script.src = SCRIPT_URL + "?region=" + region + "&callback=handleAgileData&t=" + new Date().getTime();
-            
-            script.onerror = function() { log("Network Error (JSONP failed)"); };
-            document.body.appendChild(script);
+            localStorage.setItem('last_attempt_' + region, new Date().getTime());
+            log("Fetching...");
+            var old = document.getElementById('jsonp-request');
+            if (old) old.parentNode.removeChild(old);
+            var s = document.createElement('script');
+            s.id = 'jsonp-request';
+            // Request with callback parameter [cite: 8]
+            s.src = SCRIPT_URL + "?region=" + region + "&callback=handleAgileData&t=" + new Date().getTime();
+            document.body.appendChild(s);
         }
     
         function drawGraph(schedule, currentIdx) {
@@ -116,86 +103,70 @@
             graph.innerHTML = '';
             labels.innerHTML = '';
     
-            // Windowing: Show 10 slots before and 30 after current
-            var start = Math.max(0, currentIdx - 10);
+            // Window: 8 slots in the past (4 hours) to 32 in the future (16 hours)
+            // This moves chronologically from left to right
+            var start = Math.max(0, currentIdx - 8);
             var end = Math.min(schedule.length, start + 40);
     
             for (var i = start; i < end; i++) {
                 var item = schedule[i];
                 
-                // 1. Create Bar
+                // 1. Draw Bar (Left to Right)
                 var bar = document.createElement('div');
                 bar.className = 'bar' + (i === currentIdx ? ' current' : '');
-                var val = Math.max(0, item.v); 
-                var h = Math.max(2, Math.min(100, val * 2));
+                // Scale height: 1p = 2px 
+                var h = Math.max(2, Math.min(100, item.v * 2));
                 bar.style.height = h + 'px';
                 graph.appendChild(bar);
     
-                // 2. Create Label (Every 2nd slot / 1 hour)
+                // 2. Draw Label (Just the Hour)
                 var label = document.createElement('div');
                 label.className = 'hour-label';
+                var d = new Date(item.s);
+                // Only show labels for every 2nd bar (on the hour)
                 if (i % 2 === 0) {
-                    var d = new Date(item.s);
-                    label.innerHTML = d.getHours() + ":00";
+                    label.innerHTML = d.getHours();
                 }
                 labels.appendChild(label);
             }
         }
     
         function updateUI() {
-            var cacheKey = 'agile_data_' + region;
-            var attemptKey = 'last_attempt_' + region;
-            var cached = localStorage.getItem(cacheKey);
-            var lastAttempt = parseInt(localStorage.getItem(attemptKey)) || 0;
+            var cached = localStorage.getItem('agile_data_' + region);
+            var lastAttempt = parseInt(localStorage.getItem('last_attempt_' + region)) || 0;
             var now = new Date().getTime();
     
-            if (!cached) {
-                log("No cache. Fetching...");
-                fetchData();
-                return;
-            }
+            if (!cached) { fetchData(); return; }
     
             try {
                 var schedule = JSON.parse(cached);
                 var foundIdx = -1;
     
-                // Loop through sorted data to find current slot 
+                // Find current time slot 
                 for (var i = 0; i < schedule.length; i++) {
-                    var start = new Date(schedule[i].s).getTime();
-                    var end = new Date(schedule[i].e).getTime();
-                    if (now >= start && now < end) {
+                    if (now >= new Date(schedule[i].s).getTime() && now < new Date(schedule[i].e).getTime()) {
                         foundIdx = i;
                         break;
                     }
                 }
     
                 if (foundIdx !== -1) {
-                    var current = schedule[foundIdx];
-                    document.getElementById('price').innerHTML = current.v.toFixed(1);
-                    document.getElementById('slot-time').innerHTML = formatTime(current.s) + " - " + formatTime(current.e);
-                    
-                    var nextVal = schedule[foundIdx + 1] ? schedule[foundIdx + 1].v.toFixed(1) : "--";
-                    document.getElementById('next-price').innerHTML = nextVal;
-                    
+                    var item = schedule[foundIdx];
+                    document.getElementById('price').innerHTML = item.v.toFixed(1);
+                    document.getElementById('slot-time').innerHTML = formatTime(item.s) + " - " + formatTime(item.e);
+                    document.getElementById('next-price').innerHTML = schedule[foundIdx+1] ? schedule[foundIdx+1].v.toFixed(1) : "--";
                     drawGraph(schedule, foundIdx);
                 }
     
-                // --- RESTORED REFRESH LOGIC ---
+                // Automatic refresh logic [cite: 4]
                 var lastEntry = new Date(schedule[schedule.length - 1].e);
                 var isDataOnlyForToday = (lastEntry.getDate() === new Date().getDate());
-                var isAfter4PM = (new Date().getHours() >= 16);
-                
-                // If it's past 4pm and we don't have tomorrow's data yet
-                if ((isAfter4PM && isDataOnlyForToday) || foundIdx === -1) {
-                    if (now - lastAttempt > 10 * 60 * 1000) { // Check every 10 mins
-                        log("Checking for tomorrow's prices...");
+                if ((new Date().getHours() >= 16 && isDataOnlyForToday) || foundIdx === -1) {
+                    if (now - lastAttempt > 600000) { // 10 min throttle
                         fetchData();
                     }
                 }
-            } catch(e) {
-                log("UI Error: " + e.message);
-                fetchData();
-            }
+            } catch(e) { log("UI Error"); fetchData(); }
         }
     
         updateUI();
