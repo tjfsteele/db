@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="refresh" content="60">
     <title>Agile Tracker</title>
-   <style>
+    <style>
         body { 
             background: white; color: black; font-family: sans-serif; 
             text-align: center; margin: 0; padding: 0;
@@ -12,14 +12,14 @@
             overflow: hidden;
         }
         #slot-time { font-size: 28px; margin-top: 20px; font-weight: normal; }
-        #price-main { margin-top: 10px; }
-        #price { font-size: 140px; font-weight: bold; line-height: 0.8; }
-        #unit { font-size: 24px; margin-bottom: 5px; color: #555; }
+        #price { font-size: 140px; font-weight: bold; line-height: 0.8; margin: 10px 0; }
+        #unit { font-size: 24px; color: #555; }
         #next-container { 
             font-size: 32px; border-top: 5px solid #000; 
             padding-top: 15px; width: 85%; margin: 0 auto; 
         }
     
+        /* Graph specific layout */
         #graph-container { margin: 20px auto; width: 520px; }
         #graph-wrapper { 
             height: 100px; border-bottom: 2px solid #000; 
@@ -28,13 +28,17 @@
         #labels-wrapper { 
             height: 25px; display: flex; justify-content: center; margin-top: 5px;
         }
+        
+        /* Bars: 10px wide with 1px margin */
         .bar { background: #000; width: 10px; margin: 0 1px; flex-shrink: 0; }
         .bar.current { 
-            background: #fff !important; border: 2px solid #000; 
-            width: 12px; height: 100px !important; 
+            background: #fff !important; 
+            border: 2px solid #000; 
+            width: 12px; 
+            height: 100px !important; /* Force full height playhead */
         }
         .hour-label { 
-            width: 12px; margin: 0 1px; font-size: 11px; 
+            width: 12px; margin: 0 1px; font-size: 12px; color: #000; 
             text-align: center; flex-shrink: 0;
         }
     </style>
