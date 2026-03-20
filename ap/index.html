@@ -100,32 +100,39 @@
         function drawGraph(schedule, currentIdx) {
             var graph = document.getElementById('graph-wrapper');
             var labels = document.getElementById('labels-wrapper');
+            
+            // Clear previous elements
             graph.innerHTML = '';
             labels.innerHTML = '';
-    
-            // Window: 8 slots in the past (4 hours) to 32 in the future (16 hours)
-            // This moves chronologically from left to right
+        
+            // Define the window: 8 slots (4 hours) ago to 32 slots (16 hours) ahead
             var start = Math.max(0, currentIdx - 8);
             var end = Math.min(schedule.length, start + 40);
-    
+        
+            // Single loop from START to END ensures Left -> Right chronology
             for (var i = start; i < end; i++) {
                 var item = schedule[i];
                 
-                // 1. Draw Bar (Left to Right)
+                // 1. Create the Price Bar
                 var bar = document.createElement('div');
+                // Use the currentIdx to highlight the specific active slot [cite: 8]
                 bar.className = 'bar' + (i === currentIdx ? ' current' : '');
-                // Scale height: 1p = 2px 
+                
+                // Scale height: Value * 2 (e.g., 15p = 30px) 
                 var h = Math.max(2, Math.min(100, item.v * 2));
                 bar.style.height = h + 'px';
                 graph.appendChild(bar);
-    
-                // 2. Draw Label (Just the Hour)
+        
+                // 2. Create the Hour Label
                 var label = document.createElement('div');
                 label.className = 'hour-label';
-                var d = new Date(item.s);
-                // Only show labels for every 2nd bar (on the hour)
+                
+                // Only print the hour number every 2 bars (once per hour)
                 if (i % 2 === 0) {
-                    label.innerHTML = d.getHours();
+                    var d = new Date(item.s); // 's' is the valid_from ISO string 
+                    label.innerHTML = d.getHours(); 
+                } else {
+                    label.innerHTML = "&nbsp;"; // Keep spacing consistent
                 }
                 labels.appendChild(label);
             }
