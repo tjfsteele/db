@@ -34,19 +34,19 @@
     </style>
 </head>
 <body>
-
     <div id="slot-time">--:-- - --:--</div>
-    
     <div id="price-main">
         <div id="price">--.-</div>
         <div id="unit">p/kWh (Region <span id="reg-label">-</span>)</div>
     </div>
-
     <div id="next-container">
         Next: <strong><span id="next-price">--</span>p/kWh</strong>
     </div>
-
     <div id="graph-wrapper"></div>
+
+    <div id="debug-log" style="font-size: 12px; color: #666; text-align: left; margin: 10px; border-top: 1px dashed #ccc; padding-top: 5px;">
+        Init...
+    </div>
 
     <script>
         var SCRIPT_URL = "https://script.google.com/macros/s/AKfycby4gf4zULR-cQzekmZpXoBs5txrVYr7TJIQWCcwfbwkVy1uqrpz1aniyvkweHTfRbue/exec";
@@ -54,6 +54,12 @@
         var queryString = window.location.search.substring(1); 
         var region = (queryString.length > 0) ? queryString.charAt(0).toUpperCase() : "A";
         document.getElementById('reg-label').innerHTML = region;
+
+        function log(msg) {
+            var d = new Date();
+            var time = d.getHours() + ":" + d.getMinutes() + ":" + d.getSeconds();
+            document.getElementById('debug-log').innerHTML = time + " - " + msg;
+        }
 
         function formatTime(iso) {
             var d = new Date(iso);
@@ -70,15 +76,16 @@
             var now = new Date().getTime();
 
             if (!cached) {
+                log("No cache found. Fetching...");
                 fetchData();
                 return;
             }
 
             try {
                 var schedule = JSON.parse(cached);
-                schedule.sort(function(a, b) { 
-                    return new Date(a.s).getTime() - new Date(b.s).getTime(); 
-                });
+                
+                // Kobo might struggle with large arrays, let's log the size
+                log("Data: " + schedule.length + " rows. Last entry: " + formatTime(schedule[schedule.length-1].e));
 
                 var foundIdx = -1;
                 for (var i = 0; i < schedule.length; i++) {
@@ -90,84 +97,63 @@
                     }
                 }
 
-                // Update UI if we have current data
                 if (foundIdx !== -1) {
                     var current = schedule[foundIdx];
                     document.getElementById('price').innerHTML = current.v.toFixed(1);
                     document.getElementById('slot-time').innerHTML = formatTime(current.s) + " - " + formatTime(current.e);
-                    
                     var nextVal = schedule[foundIdx + 1] ? schedule[foundIdx + 1].v.toFixed(1) : "--";
                     document.getElementById('next-price').innerHTML = nextVal;
-                    
                     drawGraph(schedule, foundIdx);
-                } else {
-                    // Fallback if current slot is missing
-                    document.getElementById('price').innerHTML = "??";
                 }
 
-                // --- REFRESH LOGIC (Moved outside foundIdx block) ---
+                // REFRESH LOGIC
                 var lastEntry = new Date(schedule[schedule.length - 1].e);
-                var todayStr = new Date().toDateString();
-                var isDataOnlyForToday = (lastEntry.toDateString() === todayStr);
+                var isDataOnlyForToday = (lastEntry.getDate() === new Date().getDate());
                 var isAfter4PM = (new Date().getHours() >= 16);
                 
-                // Fetch if: 1. It's after 4pm and we only have today OR 2. We have NO current data
                 if ((isAfter4PM && isDataOnlyForToday) || foundIdx === -1) {
-                    if (now - lastAttempt > 5 * 60 * 1000) { 
+                    if (now - lastAttempt > 5 * 60 * 1000) {
+                        log("Attempting fetch for tomorrow...");
                         fetchData();
+                    } else {
+                        log("Waiting for retry timer...");
                     }
                 }
             } catch(e) {
-                // If JSON is corrupt, retry fetch
+                log("Error parsing JSON: " + e);
                 fetchData();
             }
         }
+
+        // ... keep your drawGraph function as is ...
 
         function fetchData() {
             var attemptKey = 'last_attempt_' + region;
             localStorage.setItem(attemptKey, new Date().getTime().toString());
 
             var xhr = new XMLHttpRequest();
-            // Added a random 'cb' (cache-buster) to force Kobo to hit the network
-            var cb = Math.floor(Math.random() * 1000);
-            var fetchUrl = SCRIPT_URL + "?region=" + region + "&t=" + new Date().getTime() + "&cb=" + cb;
+            // Intense cache busting for Kobo
+            var fetchUrl = SCRIPT_URL + "?region=" + region + "&t=" + new Date().getTime() + "&nocache=" + Math.random();
             
             xhr.open("GET", fetchUrl, true);
             xhr.onreadystatechange = function () {
-                if (xhr.readyState == 4 && xhr.status == 200) {
-                    if (xhr.responseText && xhr.responseText.indexOf('[') === 0) {
-                        localStorage.setItem('agile_data_' + region, xhr.responseText);
-                        updateUI();
+                if (xhr.readyState == 4) {
+                    if (xhr.status == 200) {
+                        if (xhr.responseText.indexOf('[') === 0) {
+                            localStorage.setItem('agile_data_' + region, xhr.responseText);
+                            log("Fetch Success!");
+                            updateUI();
+                        } else {
+                            log("Fetch Error: Invalid JSON start");
+                        }
+                    } else {
+                        log("XHR Error Status: " + xhr.status);
                     }
                 }
             };
             xhr.send();
         }
 
-        function drawGraph(data, currentIdx) {
-            var wrapper = document.getElementById('graph-wrapper');
-            wrapper.innerHTML = ''; 
-            var start = Math.max(0, currentIdx - 15); 
-            var end = Math.min(data.length, start + 50);
-            
-            var maxPrice = 0;
-            for (var j = start; j < end; j++) { 
-                if (data[j].v > maxPrice) maxPrice = data[j].v; 
-            }
-            if (maxPrice < 20) maxPrice = 20;
-
-            for (var i = start; i < end; i++) {
-                var bar = document.createElement('div');
-                bar.className = 'bar';
-                if (i === currentIdx) bar.className += ' current';
-                var val = data[i].v;
-                if (val < 0) val = 0; 
-                var hPx = Math.floor((val / maxPrice) * 100);
-                bar.style.height = Math.max(hPx, 2) + 'px';
-                wrapper.appendChild(bar);
-            }
-        }
         updateUI();
     </script>
 </body>
-</html>
