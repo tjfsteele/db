@@ -113,22 +113,26 @@
             var wrapper = document.getElementById('graph-wrapper');
             wrapper.innerHTML = '';
             
-            // Show a window of prices (current and upcoming) [cite: 4, 7]
-            var startIdx = Math.max(0, currentIdx - 2);
+            // Show 12 slots before current and 28 slots after (40 total)
+            // This ensures the current bar isn't always at the far left
+            var startIdx = Math.max(0, currentIdx - 12); 
             var endIdx = Math.min(schedule.length, startIdx + 40);
-    
+        
             for (var i = startIdx; i < endIdx; i++) {
                 var item = schedule[i];
                 var bar = document.createElement('div');
+                
+                // Match the bar to the current index found in updateUI
                 bar.className = 'bar' + (i === currentIdx ? ' current' : '');
                 
-                // Scale height: 1p = 2px (capped at 100px) 
-                var height = Math.max(2, Math.min(100, item.v * 2));
+                // Octopus Agile prices can be negative; handle that or cap at 0 for height
+                var val = Math.max(0, item.v); 
+                var height = Math.min(100, val * 2); // 1p = 2px
+                
                 bar.style.height = height + 'px';
                 wrapper.appendChild(bar);
             }
         }
-    
         function updateUI() {
             var cacheKey = 'agile_data_' + region;
             var attemptKey = 'last_attempt_' + region;
