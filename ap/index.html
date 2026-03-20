@@ -69,37 +69,46 @@
         }
     
         // This handles the data returned by your Google Script 
+        // 1. Add this NEW function to handle the data when it arrives
         function handleAgileData(data) {
             if (data && Array.isArray(data)) {
                 localStorage.setItem('agile_data_' + region, JSON.stringify(data));
-                log("Callback Success! Received " + data.length + " rows.");
+                log("JSONP Success! Received " + data.length + " rows.");
                 updateUI();
             } else {
-                log("Callback Error: Invalid data format");
+                log("JSONP Error: Data format unexpected");
             }
         }
-    
+        
+        // 2. REPLACE your fetchData function with this one
         function fetchData() {
             var attemptKey = 'last_attempt_' + region;
             localStorage.setItem(attemptKey, new Date().getTime().toString());
-    
-            log("Requesting JSONP data...");
-            
+        
+            log("Requesting via JSONP...");
+        
+            // Remove any old script tags from previous attempts
             var oldScript = document.getElementById('jsonp-request');
             if (oldScript) oldScript.parentNode.removeChild(oldScript);
-    
+        
+            // Create a script tag to bypass CORS
             var script = document.createElement('script');
             script.id = 'jsonp-request';
-            // Passing the 'callback' parameter as required by your gs.txt 
-            script.src = SCRIPT_URL + "?region=" + region + "&callback=handleAgileData&t=" + new Date().getTime();
             
+            // We add &callback=handleAgileData so gs.txt knows how to wrap the response 
+            var fetchUrl = SCRIPT_URL + "?region=" + region + 
+                           "&callback=handleAgileData" + 
+                           "&t=" + new Date().getTime() + 
+                           "&nocache=" + Math.random();
+            
+            script.src = fetchUrl;
+        
             script.onerror = function() {
-                log("JSONP Script load failed.");
+                log("JSONP Script blocked or failed.");
             };
-    
+        
             document.body.appendChild(script);
         }
-    
         function drawGraph(schedule, currentIdx) {
             var wrapper = document.getElementById('graph-wrapper');
             wrapper.innerHTML = '';
