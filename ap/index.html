@@ -50,43 +50,77 @@
 
     <script>
         var SCRIPT_URL = "https://script.google.com/macros/s/AKfycby4gf4zULR-cQzekmZpXoBs5txrVYr7TJIQWCcwfbwkVy1uqrpz1aniyvkweHTfRbue/exec";
-
+    
         var queryString = window.location.search.substring(1); 
         var region = (queryString.length > 0) ? queryString.charAt(0).toUpperCase() : "A";
         document.getElementById('reg-label').innerHTML = region;
-
+    
         function log(msg) {
             var d = new Date();
             var time = d.getHours() + ":" + d.getMinutes() + ":" + d.getSeconds();
             document.getElementById('debug-log').innerHTML = time + " - " + msg;
         }
-
+    
         function formatTime(iso) {
             var d = new Date(iso);
             var h = d.getHours();
             var m = d.getMinutes();
             return (h < 10 ? '0' : '') + h + ":" + (m < 10 ? '0' : '') + m;
         }
-
+    
+        // --- NEW CALLBACK FUNCTION ---
+        // This is called automatically when the script loads from Google
+        function handleAgileData(data) {
+            if (data && Array.isArray(data)) {
+                localStorage.setItem('agile_data_' + region, JSON.stringify(data)); [cite: 8]
+                log("Callback Success! Received " + data.length + " rows.");
+                updateUI();
+            } else {
+                log("Callback Error: Invalid data format");
+            }
+        }
+    
+        function fetchData() {
+            var attemptKey = 'last_attempt_' + region;
+            localStorage.setItem(attemptKey, new Date().getTime().toString());
+    
+            log("Requesting JSONP data...");
+            
+            // Remove old script tags to prevent memory leaks/clutter
+            var oldScript = document.getElementById('jsonp-request');
+            if (oldScript) oldScript.parentNode.removeChild(oldScript);
+    
+            // Create the JSONP request
+            var script = document.createElement('script');
+            script.id = 'jsonp-request';
+            // Added &callback=handleAgileData to match the function name above
+            script.src = SCRIPT_URL + "?region=" + region + "&callback=handleAgileData&t=" + new Date().getTime(); [cite: 1, 8]
+            
+            // Handle network errors
+            script.onerror = function() {
+                log("JSONP Script load failed.");
+            };
+    
+            document.body.appendChild(script);
+        }
+    
         function updateUI() {
             var cacheKey = 'agile_data_' + region;
             var attemptKey = 'last_attempt_' + region;
             var cached = localStorage.getItem(cacheKey);
             var lastAttempt = parseInt(localStorage.getItem(attemptKey)) || 0;
             var now = new Date().getTime();
-
+    
             if (!cached) {
                 log("No cache found. Fetching...");
                 fetchData();
                 return;
             }
-
+    
             try {
-                var schedule = JSON.parse(cached);
-                
-                // Kobo might struggle with large arrays, let's log the size
-                log("Data: " + schedule.length + " rows. Last entry: " + formatTime(schedule[schedule.length-1].e));
-
+                var schedule = JSON.parse(cached); [cite: 7, 8]
+                log("Data: " + schedule.length + " rows.");
+    
                 var foundIdx = -1;
                 for (var i = 0; i < schedule.length; i++) {
                     var start = new Date(schedule[i].s).getTime();
@@ -96,16 +130,16 @@
                         break;
                     }
                 }
-
+    
                 if (foundIdx !== -1) {
                     var current = schedule[foundIdx];
                     document.getElementById('price').innerHTML = current.v.toFixed(1);
                     document.getElementById('slot-time').innerHTML = formatTime(current.s) + " - " + formatTime(current.e);
                     var nextVal = schedule[foundIdx + 1] ? schedule[foundIdx + 1].v.toFixed(1) : "--";
                     document.getElementById('next-price').innerHTML = nextVal;
-                    drawGraph(schedule, foundIdx);
+                    if (typeof drawGraph === "function") drawGraph(schedule, foundIdx);
                 }
-
+    
                 // REFRESH LOGIC
                 var lastEntry = new Date(schedule[schedule.length - 1].e);
                 var isDataOnlyForToday = (lastEntry.getDate() === new Date().getDate());
@@ -115,8 +149,6 @@
                     if (now - lastAttempt > 5 * 60 * 1000) {
                         log("Attempting fetch for tomorrow...");
                         fetchData();
-                    } else {
-                        log("Waiting for retry timer...");
                     }
                 }
             } catch(e) {
@@ -124,36 +156,7 @@
                 fetchData();
             }
         }
-
-        // ... keep your drawGraph function as is ...
-
-        function fetchData() {
-            var attemptKey = 'last_attempt_' + region;
-            localStorage.setItem(attemptKey, new Date().getTime().toString());
-
-            var xhr = new XMLHttpRequest();
-            // Intense cache busting for Kobo
-            var fetchUrl = SCRIPT_URL + "?region=" + region + "&t=" + new Date().getTime() + "&nocache=" + Math.random();
-            
-            xhr.open("GET", fetchUrl, true);
-            xhr.onreadystatechange = function () {
-                if (xhr.readyState == 4) {
-                    if (xhr.status == 200) {
-                        if (xhr.responseText.indexOf('[') === 0) {
-                            localStorage.setItem('agile_data_' + region, xhr.responseText);
-                            log("Fetch Success!");
-                            updateUI();
-                        } else {
-                            log("Fetch Error: Invalid JSON start");
-                        }
-                    } else {
-                        log("XHR Error Status: " + xhr.status);
-                    }
-                }
-            };
-            xhr.send();
-        }
-
+    
         updateUI();
     </script>
 </body>
