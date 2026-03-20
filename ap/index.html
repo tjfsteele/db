@@ -28,16 +28,13 @@
         #labels-wrapper { 
             height: 25px; display: flex; justify-content: center; margin-top: 5px;
         }
-        
         .bar { background: #000; width: 10px; margin: 0 1px; flex-shrink: 0; }
         .bar.current { 
-            background: #fff !important; 
-            border: 2px solid #000; 
-            width: 12px; 
-            height: 100px !important; 
+            background: #fff !important; border: 2px solid #000; 
+            width: 12px; height: 100px !important; 
         }
         .hour-label { 
-            width: 12px; margin: 0 1px; font-size: 12px; color: #000; 
+            width: 12px; margin: 0 1px; font-size: 11px; 
             text-align: center; flex-shrink: 0;
         }
     </style>
@@ -77,14 +74,6 @@
             return (d.getHours() < 10 ? '0' : '') + d.getHours() + ":" + (d.getMinutes() < 10 ? '0' : '') + d.getMinutes();
         }
     
-        function handleAgileData(data) {
-            if (data && Array.isArray(data)) {
-                localStorage.setItem('agile_data_' + region, JSON.stringify(data));
-                log("Data received: " + data.length + " slots");
-                updateUI();
-            }
-        }
-    
         function fetchData() {
             localStorage.setItem('last_attempt_' + region, new Date().getTime());
             log("Fetching...");
@@ -100,44 +89,49 @@
         function drawGraph(schedule, currentIdx) {
             var graph = document.getElementById('graph-wrapper');
             var labels = document.getElementById('labels-wrapper');
-            
-            // Clear previous elements
             graph.innerHTML = '';
             labels.innerHTML = '';
-        
-            // Define the window: 8 slots (4 hours) ago to 32 slots (16 hours) ahead
+    
+            // Window: 8 slots in the past (4 hours) to 32 in the future (16 hours)
             var start = Math.max(0, currentIdx - 8);
             var end = Math.min(schedule.length, start + 40);
-        
-            // Single loop from START to END ensures Left -> Right chronology
+    
             for (var i = start; i < end; i++) {
                 var item = schedule[i];
                 
-                // 1. Create the Price Bar
+                // 1. Create Bar
                 var bar = document.createElement('div');
-                // Use the currentIdx to highlight the specific active slot [cite: 8]
                 bar.className = 'bar' + (i === currentIdx ? ' current' : '');
-                
-                // Scale height: Value * 2 (e.g., 15p = 30px) 
                 var h = Math.max(2, Math.min(100, item.v * 2));
                 bar.style.height = h + 'px';
                 graph.appendChild(bar);
-        
-                // 2. Create the Hour Label
+    
+                // 2. Create Label (Just the Hour)
                 var label = document.createElement('div');
                 label.className = 'hour-label';
-                
-                // Only print the hour number every 2 bars (once per hour)
+                // Only show labels for every 2nd bar (on the hour)
                 if (i % 2 === 0) {
-                    var d = new Date(item.s); // 's' is the valid_from ISO string 
-                    label.innerHTML = d.getHours(); 
-                } else {
-                    label.innerHTML = "&nbsp;"; // Keep spacing consistent
+                    var d = new Date(item.s);
+                    label.innerHTML = d.getHours();
                 }
                 labels.appendChild(label);
             }
         }
     
+        function handleAgileData(data) {
+            if (data && Array.isArray(data)) {
+                // FORCE SORT: Ensure Left-to-Right chronology 
+                // by comparing the start strings directly 
+                data.sort(function(a, b) {
+                    return a.s.localeCompare(b.s);
+                });
+                
+                localStorage.setItem('agile_data_' + region, JSON.stringify(data));
+                log("Data sorted & saved");
+                updateUI();
+            }
+        }
+        
         function updateUI() {
             var cached = localStorage.getItem('agile_data_' + region);
             var lastAttempt = parseInt(localStorage.getItem('last_attempt_' + region)) || 0;
