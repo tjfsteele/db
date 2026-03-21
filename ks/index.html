@@ -2,73 +2,114 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Kobo Scoreboard</title>
+    <title>Kobo Cricket Scoreboard</title>
     <style>
-        /* CSS optimized for Kobo e-ink - High Contrast */
+        /* High Contrast for Kobo E-Ink */
         body { 
-            background: white; color: black; font-family: sans-serif; 
-            margin: 0; padding: 5px; text-align: center;
-            display: flex; flex-direction: column; justify-content: center; height: 100vh;
+            background: white; color: black; font-family: "Courier New", Courier, monospace; 
+            margin: 0; padding: 10px; text-align: center;
+            display: flex; flex-direction: column; height: 100vh;
             overflow: hidden;
         }
-        #jitter-wrapper { position: relative; width: 100%; }
-        .grid { display: table; width: 100%; border-collapse: collapse; table-layout: fixed; }
+        .grid { display: table; width: 100%; height: 90%; border-collapse: collapse; table-layout: fixed; }
         .row { display: table-row; }
         .cell { 
-            display: table-cell; border: 3px solid black; 
-            padding: 8px; vertical-align: middle; 
+            display: table-cell; 
+            vertical-align: middle; 
+            padding: 5px;
+            border: 1px solid #eee; /* Light guide for layout, barely visible on e-ink */
         }
-        .label { font-size: 14px; font-weight: bold; text-transform: uppercase; display: block; margin-bottom: 2px; }
         
-        /* Main Values */
-        .value { font-size: 50px; font-weight: bold; font-family: monospace; }
-        .big-val { font-size: 85px; line-height: 1; }
+        /* Labels mimicking the image */
+        .label { 
+            font-size: 18px; 
+            font-weight: bold; 
+            text-transform: uppercase; 
+            display: block; 
+            letter-spacing: 2px;
+            margin-bottom: 5px;
+        }
         
-        /* Batter Number in brackets - Smaller */
-        .player-num { font-size: 24px; font-weight: normal; vertical-align: middle; }
+        /* Value Styles */
+        .value { font-size: 60px; font-weight: bold; line-height: 1; }
+        .big-val { font-size: 110px; } /* Total, Wickets, Overs */
+        .small-val { font-size: 40px; } /* Top Batter Numbers */
         
-        #time-status { font-size: 14px; margin-top: 10px; color: #666; }
-        #clock { font-size: 30px; font-weight: bold; }
+        #time-status { font-size: 12px; margin-top: 5px; border-top: 1px solid black; padding-top: 5px; }
+        #clock { font-size: 40px; font-weight: bold; }
     </style>
 </head>
 <body>
 
-    <div id="jitter-wrapper">
-        <div class="grid">
-            <div class="row">
-                <div class="cell">
-                    <span class="label">Batter 1</span>
-                    <span id="v-2" class="value">-</span> 
-                    <span class="player-num">[<span id="v-0">0</span>]</span>
-                </div>
-                <div class="cell"><span id="clock">00:00</span></div>
-                <div class="cell">
-                    <span class="label">Batter 2</span>
-                    <span id="v-3" class="value">-</span> 
-                    <span class="player-num">[<span id="v-1">0</span>]</span>
-                </div>
+    <div class="grid">
+        <div class="row">
+            <div class="cell">
+                <span id="v-0" class="value small-val">0</span>
             </div>
-
-            <div class="row">
-                <div class="cell"><span class="label">WKTS</span><span id="v-5" class="value big-val">-</span></div>
-                <div class="cell"><span class="label">TOTAL</span><span id="v-4" class="value big-val">-</span></div>
-                <div class="cell"><span class="label">OVERS</span><span id="v-6" class="value big-val">-</span></div>
+            <div class="cell">
+                <span id="clock">00:00</span>
             </div>
-
-            <div class="row">
-                <div class="cell"><span class="label">EXTRAS</span><span id="v-7" class="value">-</span></div>
-                <div class="cell"><span class="label">LAST WKT</span><span id="v-8" class="value">-</span></div>
-                <div class="cell"><span class="label">LAST MAN</span><span id="v-9" class="value">-</span></div>
-            </div>
-
-            <div class="row">
-                <div class="cell"><span class="label">1st INNS</span><span id="v-10" class="value">-</span></div>
-                <div class="cell"><span class="label">TARGET</span><span id="v-11" class="value">-</span></div>
-                <div class="cell"><span class="label">OV REM</span><span id="v-12" class="value">-</span></div>
+            <div class="cell">
+                <span id="v-1" class="value small-val">0</span>
             </div>
         </div>
-        <div id="time-status">Connecting...</div>
+
+        <div class="row">
+            <div class="cell">
+                <span class="label">BATTER</span>
+                <span id="v-2" class="value">0</span>
+            </div>
+            <div class="cell">
+                <span class="label">TOTAL</span>
+                <span id="v-4" class="value big-val">0</span>
+            </div>
+            <div class="cell">
+                <span class="label">BATTER</span>
+                <span id="v-3" class="value">0</span>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="cell">
+                <span class="label">EXTRAS</span>
+                <span id="v-7" class="value">0</span>
+            </div>
+            <div class="cell">
+                <span class="label">WICKETS</span>
+                <span id="v-5" class="value big-val">0</span>
+            </div>
+            <div class="cell">
+                <span class="label">OVERS</span>
+                <span id="v-6" class="value big-val">0</span>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="cell">
+                <span class="label">1ST INNS</span>
+                <span id="v-10" class="value">0</span>
+                <br><br>
+                <span class="label">TO WIN</span>
+                <span id="v-11" class="value">0</span>
+            </div>
+            <div class="cell">
+                <span class="label">LAST MAN</span>
+                <span id="v-8" class="value">0</span>
+                <br><br>
+                <span class="label">LAST WKT</span>
+                <span id="v-9" class="value">0</span>
+            </div>
+            <div class="cell">
+                <span class="label">OV REM</span>
+                <span id="v-12" class="value">0</span>
+                <br><br>
+                <span class="label">DLS PAR</span>
+                <span id="v-13" class="value">0</span>
+            </div>
+        </div>
     </div>
+
+    <div id="time-status">Connecting...</div>
 
     <script>
         var LOCAL_URL = "http://192.168.137.1/"; 
@@ -78,11 +119,10 @@
         var isUsingLocal = !isProtocolSecure; 
 
         function fetchData() {
-            if (isProtocolSecure) isUsingLocal = false;
             var url = isUsingLocal ? LOCAL_URL : CLOUD_URL;
             var x = new XMLHttpRequest();
             x.open("GET", url + "?t=" + new Date().getTime(), true);
-            x.timeout = 3000;
+            x.timeout = 5000;
 
             x.onreadystatechange = function() {
                 if (x.readyState === 4) {
@@ -96,7 +136,6 @@
                 }
             };
             x.onerror = handleFailure;
-            x.ontimeout = handleFailure;
             x.send();
         }
 
@@ -111,24 +150,20 @@
         }
 
         function scheduleNextUpdate() {
-            var interval = isUsingLocal ? 1000 : 20000;
+            // E-ink doesn't like rapid updates. 2s local, 30s cloud.
+            var interval = isUsingLocal ? 2000 : 30000;
             setTimeout(fetchData, interval);
         }
 
         function updateDisplay(rawJson) {
             try {
                 var data = JSON.parse(rawJson);
-                // Map indices 0 to 12
-                for (var i = 0; i <= 12; i++) {
+                // Updated to handle 14 indices (0 to 13)
+                for (var i = 0; i <= 13; i++) {
                     var element = document.getElementById('v-' + i);
                     if (element) {
                         var val = data[i];
-                        // If empty string or null, show 0 or - depending on field
-                        if (val === "" || val === null || val === undefined) {
-                            element.innerHTML = (i < 10) ? "0" : "-";
-                        } else {
-                            element.innerHTML = val;
-                        }
+                        element.innerHTML = (val === "" || val === null) ? "0" : val;
                     }
                 }
             } catch(e) { updateStatus("DATA ERROR"); }
@@ -143,7 +178,7 @@
         }
 
         fetchData();
-        // 12 hour reload
+        // 12 hour hard reload to clear e-ink ghosting
         setTimeout(function() { window.location.reload(true); }, 43200000);
     </script>
 </body>
