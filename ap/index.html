@@ -173,37 +173,39 @@
                 document.body.classList.remove('shifted');
             }
             document.body.classList.add('inverting');
-            try {
-                var schedule = JSON.parse(cached);
-                var foundIdx = -1;
-    
-                // Find current time slot 
-                for (var i = 0; i < schedule.length; i++) {
-                    if (now >= new Date(schedule[i].s).getTime() && now < new Date(schedule[i].e).getTime()) {
-                        foundIdx = i;
-                        break;
-                    }
-                }
-    
-                if (foundIdx !== -1) {
-                    var item = schedule[foundIdx];
-                    document.getElementById('price').innerHTML = item.v.toFixed(1);
-                    document.getElementById('slot-time').innerHTML = formatTime(item.s) + " - " + formatTime(item.e);
-                    document.getElementById('next-price').innerHTML = schedule[foundIdx+1] ? schedule[foundIdx+1].v.toFixed(1) : "--";
-                    drawGraph(schedule, foundIdx);
-                }
-    
-                // Automatic refresh logic [cite: 4]
-                var lastEntry = new Date(schedule[schedule.length - 1].e);
-                var isDataOnlyForToday = (lastEntry.getDate() === new Date().getDate());
-                if ((new Date().getHours() >= 16 && isDataOnlyForToday) || foundIdx === -1) {
-                    if (now - lastAttempt > 600000) { // 10 min throttle
-                        fetchData();
-                    }
-                }
-            } catch(e) { log("UI Error"); fetchData(); }
-        }
+            setTimeout(function() {
+                document.body.classList.remove('inverting');
+                try {
+                    var schedule = JSON.parse(cached);
+                    var foundIdx = -1;
         
+                    // Find current time slot 
+                    for (var i = 0; i < schedule.length; i++) {
+                        if (now >= new Date(schedule[i].s).getTime() && now < new Date(schedule[i].e).getTime()) {
+                            foundIdx = i;
+                            break;
+                        }
+                    }
+        
+                    if (foundIdx !== -1) {
+                        var item = schedule[foundIdx];
+                        document.getElementById('price').innerHTML = item.v.toFixed(1);
+                        document.getElementById('slot-time').innerHTML = formatTime(item.s) + " - " + formatTime(item.e);
+                        document.getElementById('next-price').innerHTML = schedule[foundIdx+1] ? schedule[foundIdx+1].v.toFixed(1) : "--";
+                        drawGraph(schedule, foundIdx);
+                    }
+        
+                    // Automatic refresh logic [cite: 4]
+                    var lastEntry = new Date(schedule[schedule.length - 1].e);
+                    var isDataOnlyForToday = (lastEntry.getDate() === new Date().getDate());
+                    if ((new Date().getHours() >= 16 && isDataOnlyForToday) || foundIdx === -1) {
+                        if (now - lastAttempt > 600000) { // 10 min throttle
+                            fetchData();
+                        }
+                    }
+                } catch(e) { log("UI Error"); fetchData(); }
+            }, 500); // 500mS black
+        }
         updateUI();
     </script>
 </body>
