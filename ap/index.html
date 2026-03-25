@@ -164,24 +164,39 @@
         function updateUI() {
             var cached = localStorage.getItem('agile_data_' + region);
             var lastAttempt = parseInt(localStorage.getItem('last_attempt_' + region)) || 0;
-            var now = new Date().getTime();
-    
+            var now = new Date();
+            var nowTime = now.getTime();
+            var currentMin = now.getMinutes();
+        
             if (!cached) { fetchData(); return; }
-            if (new Date().getMinutes() % 2 === 0) {
+        
+            // 1. Handle the "Shift" to prevent burn-in (alternates every minute)
+            if (currentMin % 2 === 0) {
                 document.body.classList.add('shifted');
             } else {
                 document.body.classList.remove('shifted');
             }
-            document.body.classList.add('inverting');
+        
+            // 2. Decide if we should do the Black Flash (Only on :00 and :30)
+            var shouldFlash = (currentMin === 0 || currentMin === 30);
+        
+            if (shouldFlash) {
+                document.body.classList.add('inverting');
+            }
+        
+            // This timeout runs every minute, but only clears the black screen 
+            // if it was actually applied.
             setTimeout(function() {
                 document.body.classList.remove('inverting');
+                
                 try {
                     var schedule = JSON.parse(cached);
                     var foundIdx = -1;
         
                     // Find current time slot 
                     for (var i = 0; i < schedule.length; i++) {
-                        if (now >= new Date(schedule[i].s).getTime() && now < new Date(schedule[i].e).getTime()) {
+                        if (nowTime >= new Date(schedule[i].s).getTime() && 
+                            nowTime < new Date(schedule[i].e).getTime()) {
                             foundIdx = i;
                             break;
                         }
@@ -195,16 +210,16 @@
                         drawGraph(schedule, foundIdx);
                     }
         
-                    // Automatic refresh logic [cite: 4]
+                    // Fetch logic for 4pm price releases
                     var lastEntry = new Date(schedule[schedule.length - 1].e);
-                    var isDataOnlyForToday = (lastEntry.getDate() === new Date().getDate());
-                    if ((new Date().getHours() >= 16 && isDataOnlyForToday) || foundIdx === -1) {
-                        if (now - lastAttempt > 600000) { // 10 min throttle
+                    var isDataOnlyForToday = (lastEntry.getDate() === now.getDate());
+                    if ((now.getHours() >= 16 && isDataOnlyForToday) || foundIdx === -1) {
+                        if (nowTime - lastAttempt > 600000) { 
                             fetchData();
                         }
                     }
                 } catch(e) { log("UI Error"); fetchData(); }
-            }, 500); // 500mS black
+            }, shouldFlash ? 500 : 0); // Flash for 500ms if it's time, otherwise 0ms
         }
         updateUI();
     </script>
