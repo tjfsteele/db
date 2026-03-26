@@ -16,7 +16,7 @@
 <body>
 
 <div class="card">
-    <h2>Scorebox Finder</h2>
+    <h2>Scorebox Finder 2</h2>
     <p>Tap below to scan for the Scorebox device and open its web interface.</p>
     <button id="scanBtn">Find Scorebox</button>
     <div id="status">Ready to scan...</div>
@@ -30,47 +30,47 @@
         try {
             status.innerText = "Searching for Scorebox...";
             
-            // Use a broader filter to ensure the background scanner stays active
             const device = await navigator.bluetooth.requestDevice({
                 filters: [{ name: 'Scorebox' }],
-                optionalServices: [0xDEAD, 'device_information']
+                optionalServices: [0xDEAD, 0x1800] 
             });
     
-            status.innerHTML = "<b>Scorebox Found!</b><br>Listening for IP packet...";
+            status.innerHTML = "<b>Scorebox Found!</b><br>Waking up the data stream...";
     
-            // Set up a timeout hint
-            const timeoutHint = setTimeout(() => {
-                if (status.innerText.includes("Listening")) {
-                    status.innerHTML += "<br><i style='font-size:0.8em'>Still waiting... is the Scorebox broadcasting?</i>";
-                }
-            }, 5000);
-    
+            // 1. Setup the listener first
             device.addEventListener('advertisementreceived', (event) => {
-                console.log("Packet detected!", event);
+                console.log("Packet captured!");
                 
+                // Check Manufacturer Data (0xFF)
                 if (event.manufacturerData && event.manufacturerData.size > 0) {
-                    clearTimeout(timeoutHint);
-                    
-                    // Pull the first available manufacturer data entry
                     const dataView = event.manufacturerData.values().next().value;
-                    const decoder = new TextDecoder('utf-8');
-                    const rawString = decoder.decode(dataView);
-                    
-                    // Clean the IP: Keep only numbers and dots
+                    const rawString = new TextDecoder().decode(dataView);
                     const cleanIP = rawString.replace(/[^\d.]/g, '');
     
                     if (cleanIP.length >= 7 && cleanIP.includes('.')) {
                         status.innerHTML = `Success!<br>IP: <span class="ip-display">${cleanIP}</span><br>Redirecting...`;
-                        
-                        setTimeout(() => {
-                            window.location.href = `http://${cleanIP}`;
-                        }, 2000);
+                        setTimeout(() => { window.location.href = `http://${cleanIP}`; }, 1500);
+                    }
+                } 
+                // FALLBACK: Check Service Data (0x16) just in case
+                else if (event.serviceData && event.serviceData.size > 0) {
+                    const dataView = event.serviceData.values().next().value;
+                    const rawString = new TextDecoder().decode(dataView);
+                    const cleanIP = rawString.replace(/[^\d.]/g, '');
+                    if (cleanIP.includes('.')) {
+                        window.location.href = `http://${cleanIP}`;
                     }
                 }
             });
     
-            // CRITICAL: This is what triggers the 'advertisementreceived' event
+            // 2. Start watching
             await device.watchAdvertisements();
+    
+            // 3. THE HACK: Briefly connect and disconnect. 
+            // This forces Android to perform an 'Active Scan' and grab the Scan Response (Manufacturer Data).
+            const server = await device.gatt.connect();
+            status.innerHTML = "<b>Connected!</b><br>Pulling IP from broadcast...";
+            await server.disconnect(); 
     
         } catch (error) {
             status.innerText = "Error: " + error.message;
