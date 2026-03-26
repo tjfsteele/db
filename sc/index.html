@@ -52,9 +52,10 @@
                     ipFound = true;
                     status.innerHTML = `<b>Ready!</b><br><span class="ip-val">${ip}</span><br>Redirecting...`;
                     
-                    setTimeout(() => { 
-                        window.location.href = `http://${ip}`; 
-                    }, 1500);
+                    setTimeout(() => {
+                        console.log("Redirecting to: " + ip);
+                        window.location.replace(`http://${ip}`);
+                    }, 1000);
                     
                     return true;
                 }
@@ -80,7 +81,7 @@
                 processData(val);
             }
 
-            if (!ipFound) status.innerText = "Connected, but IP not found.";
+            if (!ipFound) status.innerText = "Scorebox not on hotspot";
             // We keep the connection alive just long enough to read, then let it go
             await server.disconnect();
 
