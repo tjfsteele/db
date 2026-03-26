@@ -38,7 +38,7 @@
 <body>
 
 <div class="card">
-    <h2>Scorebox 4</h2>
+    <h2>Scorebox V</h2>
     <p style="color: #666; font-size: 14px; margin-bottom: 20px;">
         Connect via Bluetooth to find the local IP address.
     </p>
@@ -57,7 +57,7 @@
             // 1. Request the device. 
             // NOTE: Ensure your ESP32 uses setName("Scorebox") to match this filter.
             const device = await navigator.bluetooth.requestDevice({
-                filters: [{ namePrefix: 'SB' }], 
+                filters: [{ namePrefix: 'Scorebox' }], 
                 optionalServices: [0xDEAD, 0x1800] 
             });
 
