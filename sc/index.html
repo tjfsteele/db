@@ -1,58 +1,91 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scorebox Connect</title>
+    <style>
+        body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; background-color: #f4f4f9; }
+        .card { background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); text-align: center; width: 80%; max-width: 400px; }
+        button { background-color: #007bff; color: white; border: none; padding: 15px 25px; font-size: 1.1rem; border-radius: 8px; cursor: pointer; transition: background 0.3s; }
+        button:hover { background-color: #0056b3; }
+        #status { margin-top: 20px; color: #555; line-height: 1.5; font-weight: 500; }
+        .ip-display { color: #28a745; font-weight: bold; font-family: monospace; font-size: 1.2rem; }
+    </style>
+</head>
 <body>
-    <h2>Scorebox Finder</h2>
-    <button id="scanBtn">Find & Open Scorebox</button>
-    <p id="status">Click the button to scan...</p>
 
-    <script>
-        const scanBtn = document.getElementById('scanBtn');
-        const status = document.getElementById('status');
-        
-        scanBtn.addEventListener('click', async () => {
-            try {
-                status.innerText = "Requesting Scan Permission...";
-                
-                // 1. Request a scan for a specific name
-                const scan = await navigator.bluetooth.requestLEScan({
-                    filters: [{ name: 'Scorebox' }],
-                    keepRepeatedDevices: true
-                });
-        
-                status.innerText = "Scanning for Scorebox packets...";
-        
-                // 2. Listen for the advertisement
-                navigator.bluetooth.addEventListener('advertisementreceived', event => {
-                    if (event.device.name === 'Scorebox') {
-                        status.innerText = "Scorebox found! Extracting IP...";
-                        
-                        // 3. Extract Manufacturer Data
-                        // event.manufacturerData is a Map of [CompanyID, DataView]
-                        for (let [companyId, dataView] of event.manufacturerData) {
-                            const decoder = new TextDecoder('utf-8');
-                            const ipAddress = decoder.decode(dataView);
-                            
-                            // Cleanup any non-printable characters or whitespace
-                            const cleanIP = ipAddress.replace(/[^\d.]/g, ''); 
-        
-                            if (cleanIP.includes('.')) {
-                                status.innerText = `IP Found: ${cleanIP}. Opening...`;
-                                scan.stop(); // Stop scanning once found
-                                
-                                setTimeout(() => {
-                                    window.location.href = `http://${cleanIP}`;
-                                }, 800);
-                                return;
-                            }
-                        }
+<div class="card">
+    <h2>Scorebox Finder</h2>
+    <p>Tap below to scan for the Scorebox device and open its web interface.</p>
+    <button id="scanBtn">Find Scorebox</button>
+    <div id="status">Ready to scan...</div>
+</div>
+
+<script>
+    const scanBtn = document.getElementById('scanBtn');
+    const status = document.getElementById('status');
+
+    scanBtn.addEventListener('click', async () => {
+        try {
+            status.innerText = "Requesting Bluetooth access...";
+            
+            // 1. Ask user to pick the Scorebox
+            const device = await navigator.bluetooth.requestDevice({
+                filters: [{ name: 'Scorebox' }],
+                optionalServices: [0xDEAD] // Whitelisting your custom service
+            });
+
+            status.innerHTML = "Scorebox selected.<br>Waiting for advertisement packet...";
+
+            // 2. Set up the listener for the Manufacturer Data
+            device.addEventListener('advertisementreceived', (event) => {
+                console.log("Advertisement received...");
+
+                // 3. Iterate through Manufacturer Data Map
+                event.manufacturerData.forEach((valueDataView, companyId) => {
+                    const decoder = new TextDecoder('utf-8');
+                    const rawData = decoder.decode(valueDataView);
+                    
+                    // Regex to extract only the IP (numbers and dots)
+                    // This ignores the 'XX' prefix bytes automatically
+                    const foundIP = rawData.replace(/[^\d.]/g, '').trim();
+
+                    // 4. Handle empty or invalid IP strings
+                    if (!foundIP || foundIP.length < 7 || !foundIP.includes('.')) {
+                        status.innerText = "Found data, but IP address appears empty or invalid.";
+                        return;
                     }
+
+                    // 5. Success UI and Delay
+                    status.innerHTML = `Found Scorebox at:<br><span class="ip-display">${foundIP}</span><br>Redirecting in 2 seconds...`;
+                    
+                    // Stop watching once we have the prize
+                    device.watchAdvertisements({once: true}); 
+
+                    setTimeout(() => {
+                        window.location.href = `http://${foundIP}`;
+                    }, 2000);
                 });
-        
-            } catch (error) {
-                status.innerText = "Scan failed: " + error;
+            });
+
+            // 6. Start the "watching" process (Experimental API)
+            if (device.watchAdvertisements) {
+                await device.watchAdvertisements();
+            } else {
+                status.innerText = "Error: Your browser doesn't support advertisement watching. Please enable 'Experimental Web Platform features' in chrome://flags.";
+            }
+
+        } catch (error) {
+            if (error.name === 'NotFoundError') {
+                status.innerText = "Scan cancelled.";
+            } else {
+                status.innerText = "Error: " + error.message;
                 console.error(error);
             }
-        });
-    </script>
+        }
+    });
+</script>
+
 </body>
 </html>
