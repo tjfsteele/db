@@ -15,7 +15,7 @@
 <body>
 
 <div class="card">
-    <h2>Scorebox IX</h2>
+    <h2>Scorebox Connect</h2>
     <button id="go">Find Scorebox</button>
     <div id="status">Ready</div>
 </div>
@@ -37,11 +37,25 @@
             const processData = (dataView) => {
                 const raw = new TextDecoder().decode(dataView);
                 const match = raw.match(/\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/);
+                
                 if (match) {
-                    ipFound = true;
                     const ip = match[0];
-                    status.innerHTML = `Found IP!<br><span class="ip-val">${ip}</span>`;
-                    setTimeout(() => { window.location.href = `http://${ip}`; }, 1500);
+                    
+                    // Check if the IP is just a placeholder
+                    if (ip === "0.0.0.0") {
+                        status.innerHTML = `<b>Connected to SBox</b><br><span style="color: #f39c12;">Waiting for Scorebox to get WiFi...</span>`;
+                        console.log("Device is advertising 0.0.0.0 - waiting...");
+                        return false; 
+                    }
+            
+                    // It's a real IP!
+                    ipFound = true;
+                    status.innerHTML = `<b>Ready!</b><br><span class="ip-val">${ip}</span><br>Redirecting...`;
+                    
+                    setTimeout(() => { 
+                        window.location.href = `http://${ip}`; 
+                    }, 1500);
+                    
                     return true;
                 }
                 return false;
