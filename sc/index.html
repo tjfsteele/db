@@ -32,10 +32,10 @@
                 const characteristic = await service.getCharacteristic('serial_number_string');
                 
                 const value = await characteristic.readValue();
-                const ipAddress = new TextDecoder().decode(value);
+                
         
-                status.innerText = `Opening http://${ipAddress}...`;
-                window.location.href = `http://${ipAddress}`;
+                status.innerText = `Opening http://${value}...`;
+                window.location.href = `http://${value}`;
         
             } catch (error) {
                 status.innerText = "Error: " + error;
