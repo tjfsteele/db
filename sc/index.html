@@ -9,7 +9,85 @@
             font-family: -apple-system, system-ui, sans-serif; 
             display: flex; align-items: center; justify-content: center; 
             height: 100vh; margin: 0; background: #f0f2f5; 
+        }<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scorebox</title>
+    <style>
+        body { font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #f4f4f9; }
+        .card { background: white; padding: 40px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); text-align: center; width: 300px; }
+        button { background: #007AFF; color: white; border: none; padding: 15px; font-size: 18px; border-radius: 10px; cursor: pointer; width: 100%; }
+        #status { margin-top: 20px; font-size: 14px; color: #555; min-height: 3em; }
+        .ip-val { color: #28a745; font-weight: bold; font-size: 1.2em; display: block; margin-top: 5px; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>Scorebox 6</h2>
+    <button id="go">Find Scorebox</button>
+    <div id="status">Ready</div>
+</div>
+
+<script>
+    const btn = document.getElementById('go');
+    const status = document.getElementById('status');
+
+    btn.addEventListener('click', async () => {
+        try {
+            status.innerText = "Selecting device...";
+            const device = await navigator.bluetooth.requestDevice({
+                filters: [{ name: 'Scorebox' }],
+                optionalServices: ['dead'] // NimBLE uses lowercase UUIDs in JS
+            });
+
+            let ipFound = false;
+
+            const processData = (dataView) => {
+                const raw = new TextDecoder().decode(dataView);
+                const match = raw.match(/\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/);
+                if (match) {
+                    ipFound = true;
+                    const ip = match[0];
+                    status.innerHTML = `Found IP!<br><span class="ip-val">${ip}</span>`;
+                    setTimeout(() => { window.location.href = `http://${ip}`; }, 1500);
+                    return true;
+                }
+                return false;
+            };
+
+            // Path 1: Listen for Broadcast (Fast)
+            device.addEventListener('advertisementreceived', (e) => {
+                if (ipFound) return;
+                e.manufacturerData.forEach(value => processData(value));
+            });
+            
+            try { await device.watchAdvertisements(); } catch(e) {}
+
+            // Path 2: Direct Connection (Reliable)
+            status.innerHTML = "Connecting to Scorebox...";
+            const server = await device.gatt.connect();
+            
+            if (!ipFound) {
+                const service = await server.getPrimaryService('dead');
+                const char = await service.getCharacteristic('beef');
+                const val = await char.readValue();
+                processData(val);
+            }
+
+            if (!ipFound) status.innerText = "Connected, but IP not found.";
+            // We keep the connection alive just long enough to read, then let it go
+            await server.disconnect();
+
+        } catch (err) {
+            status.innerText = "Error: " + err.message;
         }
+    });
+</script>
+</body>
+</html>
         .card { 
             background: white; padding: 40px; border-radius: 24px; 
             box-shadow: 0 15px 35px rgba(0,0,0,0.1); text-align: center; 
