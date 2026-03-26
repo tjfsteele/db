@@ -1,79 +1,73 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Scorebox Connect</title>
+    <title>Scorebox Link</title>
     <style>
-        body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; background-color: #f4f4f9; }
-        .card { background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); text-align: center; width: 80%; max-width: 400px; }
-        button { background-color: #007bff; color: white; border: none; padding: 15px 25px; font-size: 1.1rem; border-radius: 8px; cursor: pointer; transition: background 0.3s; }
-        button:hover { background-color: #0056b3; }
-        #status { margin-top: 20px; color: #555; line-height: 1.5; font-weight: 500; }
-        .ip-display { color: #28a745; font-weight: bold; font-family: monospace; font-size: 1.2rem; }
+        body { font-family: -apple-system, sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #f0f2f5; }
+        .card { background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); text-align: center; width: 320px; }
+        button { background: #007AFF; color: white; border: none; padding: 16px 32px; font-size: 18px; border-radius: 12px; cursor: pointer; width: 100%; font-weight: 600; }
+        #status { margin-top: 20px; font-size: 14px; color: #666; min-height: 3em; line-height: 1.4; }
+        .ip-val { color: #28a745; font-family: monospace; font-weight: bold; font-size: 1.2rem; display: block; margin: 5px 0; }
     </style>
 </head>
 <body>
 
 <div class="card">
-    <h2>Scorebox Finder 2</h2>
-    <p>Tap below to scan for the Scorebox device and open its web interface.</p>
-    <button id="scanBtn">Find Scorebox</button>
-    <div id="status">Ready to scan...</div>
+    <h2>Scorebox 3</h2>
+    <button id="btn">Find Scorebox</button>
+    <div id="status">Tap to start...</div>
 </div>
 
 <script>
-    const scanBtn = document.getElementById('scanBtn');
+    const btn = document.getElementById('btn');
     const status = document.getElementById('status');
-    
-    scanBtn.addEventListener('click', async () => {
+
+    btn.addEventListener('click', async () => {
         try {
-            status.innerText = "Searching for Scorebox...";
+            status.innerText = "Requesting Bluetooth...";
             
+            // Look for the new shortened name
             const device = await navigator.bluetooth.requestDevice({
                 filters: [{ name: 'Scorebox' }],
-                optionalServices: [0xDEAD, 0x1800] 
+                optionalServices: [0xDEAD] 
             });
-    
-            status.innerHTML = "<b>Scorebox Found!</b><br>Waking up the data stream...";
-    
-            // 1. Setup the listener first
+
+            status.innerHTML = "<b>Found SBox!</b><br>Reading IP from broadcast...";
+
             device.addEventListener('advertisementreceived', (event) => {
-                console.log("Packet captured!");
-                
-                // Check Manufacturer Data (0xFF)
                 if (event.manufacturerData && event.manufacturerData.size > 0) {
+                    // Pull the string from manufacturer data
                     const dataView = event.manufacturerData.values().next().value;
-                    const rawString = new TextDecoder().decode(dataView);
-                    const cleanIP = rawString.replace(/[^\d.]/g, '');
-    
+                    const rawStr = new TextDecoder().decode(dataView);
+                    
+                    // Regex: extract digits and dots only
+                    const cleanIP = rawStr.replace(/[^\d.]/g, '');
+
                     if (cleanIP.length >= 7 && cleanIP.includes('.')) {
-                        status.innerHTML = `Success!<br>IP: <span class="ip-display">${cleanIP}</span><br>Redirecting...`;
-                        setTimeout(() => { window.location.href = `http://${cleanIP}`; }, 1500);
-                    }
-                } 
-                // FALLBACK: Check Service Data (0x16) just in case
-                else if (event.serviceData && event.serviceData.size > 0) {
-                    const dataView = event.serviceData.values().next().value;
-                    const rawString = new TextDecoder().decode(dataView);
-                    const cleanIP = rawString.replace(/[^\d.]/g, '');
-                    if (cleanIP.includes('.')) {
-                        window.location.href = `http://${cleanIP}`;
+                        status.innerHTML = `Connected to Scorebox!<br><span class="ip-val">${cleanIP}</span><br>Opening browser in 2s...`;
+                        
+                        // Stop scanning
+                        device.watchAdvertisements({once: true});
+
+                        setTimeout(() => {
+                            window.location.href = `http://${cleanIP}`;
+                        }, 2000);
+                    } else {
+                        status.innerText = "Received data, but IP was empty or invalid.";
                     }
                 }
             });
-    
-            // 2. Start watching
+
+            // Start the listener
             await device.watchAdvertisements();
-    
-            // 3. THE HACK: Briefly connect and disconnect. 
-            // This forces Android to perform an 'Active Scan' and grab the Scan Response (Manufacturer Data).
-            const server = await device.gatt.connect();
-            status.innerHTML = "<b>Connected!</b><br>Pulling IP from broadcast...";
-            await server.disconnect(); 
-    
+
         } catch (error) {
             status.innerText = "Error: " + error.message;
+            if (error.message.includes("watchAdvertisements")) {
+                status.innerHTML += "<br><b>Enable 'Experimental Web Platform features' in chrome://flags</b>";
+            }
         }
     });
 </script>
