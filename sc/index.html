@@ -1,80 +1,53 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Scorebox Link</title>
-    <style>
-        body { font-family: -apple-system, sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #f0f2f5; }
-        .card { background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); text-align: center; width: 320px; }
-        button { background: #007AFF; color: white; border: none; padding: 16px 32px; font-size: 18px; border-radius: 12px; cursor: pointer; width: 100%; font-weight: 600; }
-        #status { margin-top: 20px; font-size: 14px; color: #666; min-height: 3em; line-height: 1.4; }
-        .ip-val { color: #28a745; font-family: monospace; font-weight: bold; font-size: 1.2rem; display: block; margin: 5px 0; }
-    </style>
-</head>
-<body>
-
-<div class="card">
-    <h2>Scorebox</h2>
-    <button id="btn">Find Scorebox</button>
-    <div id="status">Tap to start...</div>
-</div>
-
-<script>
-    const btn = document.getElementById('btn');
-const status = document.getElementById('status');
-
 btn.addEventListener('click', async () => {
     try {
-        status.innerText = "Scanning for Scorebox...";
+        status.innerText = "Scanning for SBox...";
         
-        // 1. Trigger the picker
         const device = await navigator.bluetooth.requestDevice({
-            filters: [{ name: 'Scorebox' }], // Ensure this matches your ESP32 setName
+            filters: [{ name: 'SBox' }],
             optionalServices: [0xDEAD]
         });
 
         status.innerHTML = "<b>Found Scorebox!</b><br>Extracting IP address...";
 
-        // 2. Listen for the advertisement we already know is there
-        device.addEventListener('advertisementreceived', (event) => {
-            console.log("Advertisement packet received");
-
+        // 1. Setup the listener
+        const onAdvReceived = (event) => {
+            console.log("Packet received!");
             event.manufacturerData.forEach((valueDataView) => {
-                const decoder = new TextDecoder('utf-8');
-                const rawStr = decoder.decode(valueDataView);
-                
-                // This looks specifically for a sequence of: 
-                // [numbers].[numbers].[numbers].[numbers]
+                const rawStr = new TextDecoder().decode(valueDataView);
                 const ipMatch = rawStr.match(/\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/);
 
                 if (ipMatch) {
                     const cleanIP = ipMatch[0];
                     status.innerHTML = `Success!<br>IP: <span class="ip-val">${cleanIP}</span><br>Redirecting...`;
                     
-                    // Stop watching to save battery/resources
-                    device.watchAdvertisements({once: true});
-
-                    setTimeout(() => {
-                        window.location.href = `http://${cleanIP}`;
-                    }, 2000);
+                    device.removeEventListener('advertisementreceived', onAdvReceived);
+                    setTimeout(() => { window.location.href = `http://${cleanIP}`; }, 1500);
                 }
             });
-        });
+        };
 
-        // 3. Start the "Watching" process
+        device.addEventListener('advertisementreceived', onAdvReceived);
+
+        // 2. Start watching
         await device.watchAdvertisements();
 
+        // 3. THE NUDGE: If we don't get the IP in 1.5 seconds, 
+        // briefly connect to force a cache refresh.
+        setTimeout(async () => {
+            if (status.innerText.includes("Extracting")) {
+                console.log("Nudging device...");
+                try {
+                    const server = await device.gatt.connect();
+                    // Just connecting often populates the manufacturerData cache
+                    await server.disconnect(); 
+                    console.log("Nudge complete.");
+                } catch (e) {
+                    console.log("Nudge failed, still waiting...");
+                }
+            }
+        }, 1500);
+
     } catch (error) {
-        if (error.name === 'NotFoundError') {
-            status.innerText = "Scan cancelled.";
-        } else {
-            status.innerText = "Error: " + error.message;
-            console.error(error);
-        }
+        status.innerText = "Error: " + error.message;
     }
 });
-</script>
-
-</body>
-</html>
