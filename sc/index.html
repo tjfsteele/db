@@ -26,11 +26,11 @@ const status = document.getElementById('status');
 
 btn.addEventListener('click', async () => {
     try {
-        status.innerText = "Scanning for SBox...";
+        status.innerText = "Scanning for Scorebox...";
         
         // 1. Trigger the picker
         const device = await navigator.bluetooth.requestDevice({
-            filters: [{ name: 'SBox' }], // Ensure this matches your ESP32 setName
+            filters: [{ name: 'Scorebox' }], // Ensure this matches your ESP32 setName
             optionalServices: [0xDEAD]
         });
 
