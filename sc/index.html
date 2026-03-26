@@ -15,7 +15,7 @@
 <body>
 
 <div class="card">
-    <h2>Scorebox VIII</h2>
+    <h2>Scorebox IX</h2>
     <button id="go">Find Scorebox</button>
     <div id="status">Ready</div>
 </div>
@@ -60,8 +60,8 @@
             const server = await device.gatt.connect();
             
             if (!ipFound) {
-                const service = await server.getPrimaryService('dead');
-                const char = await service.getCharacteristic('beef');
+                const service = await server.getPrimaryService('0000dead-0000-1000-8000-00805f9b34fb');
+                const char = await service.getCharacteristic('0000beef-0000-1000-8000-00805f9b34fb');
                 const val = await char.readValue();
                 processData(val);
             }
