@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<body>
+    <h2>Scorebox Finder</h2>
+    <button id="scanBtn">Find & Open Scorebox</button>
+    <p id="status">Click the button to scan...</p>
+
+    <script>
+        document.getElementById('scanBtn').addEventListener('click', async () => {
+            const status = document.getElementById('status');
+            try {
+                status.innerText = "Requesting Scorebox...";
+                
+                // 1. Request the device by name
+                const device = await navigator.bluetooth.requestDevice({
+                    filters: [{ name: 'Scorebox' }],
+                    optionalServices: [] // We don't need services, just the adv data
+                });
+
+                status.innerText = "Found! Reading IP data...";
+
+                // 2. Listen for the advertisement packet
+                device.addEventListener('advertisementreceived', (event) => {
+                    // manufacturerData is a Map. Key is the Company ID (e.g. 0xFFFF)
+                    event.manufacturerData.forEach((valueDataView) => {
+                        
+                        status.innerText = `Redirecting to http://${valueDataView}...`;
+                        
+                        // 3. Open the browser to that IP
+                        window.location.href = `http://${ipAddress}`;
+                    });
+                });
+
+                // 4. Start watching for those packets
+                await device.watchAdvertisements();
+
+            } catch (error) {
+                status.innerText = "Error: " + error;
+                console.error(error);
+            }
+        });
+    </script>
+</body>
+</html>
