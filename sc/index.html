@@ -23,70 +23,67 @@
 <script>
     const btn = document.getElementById('go');
     const status = document.getElementById('status');
+    let ipFound = false;
+
+    // Helper for waiting
+    const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+    const processData = (dataView) => {
+        const raw = new TextDecoder().decode(dataView);
+        const match = raw.match(/\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/);
+        
+        if (match) {
+            const ip = match[0];
+            
+            if (ip === "0.0.0.0") {
+                status.innerHTML = `<b>Connected to SBox</b><br><span style="color: #f39c12;">Waiting for Scorebox to get WiFi...</span>`;
+                return null; // Signals we found the device, but not a valid IP yet
+            }
+
+            ipFound = true;
+            status.innerHTML = `<b>Ready!</b><br><span class="ip-val">${ip}</span><br>Redirecting...`;
+            
+            setTimeout(() => {
+                window.location.replace(`http://${ip}`);
+            }, 1000);
+            
+            return ip;
+        }
+        return null;
+    };
 
     btn.addEventListener('click', async () => {
         try {
+            ipFound = false;
             status.innerText = "Selecting device...";
+            
             const device = await navigator.bluetooth.requestDevice({
                 filters: [{ name: 'Scorebox' }],
                 optionalServices: ['0000dead-0000-1000-8000-00805f9b34fb']
             });
 
-            let ipFound = false;
-
-            const processData = (dataView) => {
-                const raw = new TextDecoder().decode(dataView);
-                const match = raw.match(/\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/);
-                
-                if (match) {
-                    const ip = match[0];
-                    
-                    // Check if the IP is just a placeholder
-                    if (ip === "0.0.0.0") {
-                        status.innerHTML = `<b>Connected to SBox</b><br><span style="color: #f39c12;">Waiting for Scorebox to get WiFi...</span>`;
-                        console.log("Device is advertising 0.0.0.0 - waiting...");
-                        return false; 
-                    }
-            
-                    // It's a real IP!
-                    ipFound = true;
-                    status.innerHTML = `<b>Ready!</b><br><span class="ip-val">${ip}</span><br>Redirecting...`;
-                    
-                    setTimeout(() => {
-                        console.log("Redirecting to: " + ip);
-                        window.location.replace(`http://${ip}`);
-                    }, 1000);
-                    
-                    return true;
-                }
-                return false;
-            };
-
-            // Path 1: Listen for Broadcast (Fast)
-            device.addEventListener('advertisementreceived', (e) => {
-                if (ipFound) return;
-                e.manufacturerData.forEach(value => processData(value));
-            });
-            
-            try { await device.watchAdvertisements(); } catch(e) {}
-
-            // Path 2: Direct Connection (Reliable)
             status.innerHTML = "Connecting to Scorebox...";
             const server = await device.gatt.connect();
-            
-            if (!ipFound) {
-                const service = await server.getPrimaryService('0000dead-0000-1000-8000-00805f9b34fb');
-                const char = await service.getCharacteristic('0000beef-0000-1000-8000-00805f9b34fb');
-                const val = await char.readValue();
-                processData(val);
-            }
+            const service = await server.getPrimaryService('0000dead-0000-1000-8000-00805f9b34fb');
+            const char = await service.getCharacteristic('0000beef-0000-1000-8000-00805f9b34fb');
 
-            if (!ipFound) status.innerText = "Scorebox not on hotspot";
-            // We keep the connection alive just long enough to read, then let it go
-            await server.disconnect();
+            // --- REPEAT LOOP ---
+            while (!ipFound) {
+                console.log("Checking for IP...");
+                const val = await char.readValue();
+                const result = processData(val);
+
+                if (result && result !== "0.0.0.0") {
+                    break; // Success!
+                } else {
+                    status.innerHTML = `<b>Waiting for Hotspot...</b><br>Retrying in 3s...`;
+                    await sleep(3000); // Wait 3 seconds before next read
+                }
+            }
 
         } catch (err) {
             status.innerText = "Error: " + err.message;
+            console.error(err);
         }
     });
 </script>
