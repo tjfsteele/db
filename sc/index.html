@@ -1,15 +1,4 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Scorebox Link</title>
-    <style>
-        body { 
-            font-family: -apple-system, system-ui, sans-serif; 
-            display: flex; align-items: center; justify-content: center; 
-            height: 100vh; margin: 0; background: #f0f2f5; 
-        }<!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
@@ -26,7 +15,7 @@
 <body>
 
 <div class="card">
-    <h2>Scorebox 6</h2>
+    <h2>Scorebox VII</h2>
     <button id="go">Find Scorebox</button>
     <div id="status">Ready</div>
 </div>
@@ -86,116 +75,5 @@
         }
     });
 </script>
-</body>
-</html>
-        .card { 
-            background: white; padding: 40px; border-radius: 24px; 
-            box-shadow: 0 15px 35px rgba(0,0,0,0.1); text-align: center; 
-            width: 90%; max-width: 350px; 
-        }
-        h2 { margin-top: 0; color: #1c1e21; }
-        button { 
-            background: #007AFF; color: white; border: none; 
-            padding: 18px; font-size: 18px; border-radius: 14px; 
-            cursor: pointer; width: 100%; font-weight: 600;
-            transition: transform 0.1s, background 0.2s;
-        }
-        button:active { transform: scale(0.98); background: #0056b3; }
-        #status { 
-            margin-top: 25px; font-size: 15px; color: #65676b; 
-            min-height: 4em; line-height: 1.5; 
-        }
-        .ip-val { 
-            color: #28a745; font-family: monospace; 
-            font-weight: bold; font-size: 1.3rem; 
-            display: block; margin: 8px 0; 
-        }
-        .error { color: #dc3545; font-weight: 500; }
-    </style>
-</head>
-<body>
-
-<div class="card">
-    <h2>Scorebox V</h2>
-    <p style="color: #666; font-size: 14px; margin-bottom: 20px;">
-        Connect via Bluetooth to find the local IP address.
-    </p>
-    <button id="connectBtn">Find Scorebox</button>
-    <div id="status">Ready to scan...</div>
-</div>
-
-<script>
-    const btn = document.getElementById('connectBtn');
-    const status = document.getElementById('status');
-
-    btn.addEventListener('click', async () => {
-        try {
-            status.innerHTML = "Opening Bluetooth picker...";
-            
-            // 1. Request the device. 
-            // NOTE: Ensure your ESP32 uses setName("Scorebox") to match this filter.
-            const device = await navigator.bluetooth.requestDevice({
-                filters: [{ namePrefix: 'Scorebox' }], 
-                optionalServices: [0xDEAD, 0x1800] 
-            });
-
-            status.innerHTML = "<b>Device Selected</b><br>Syncing IP data...";
-
-            // 2. Setup the listener for the IP packet
-            const abortController = new AbortController();
-            
-            device.addEventListener('advertisementreceived', (event) => {
-                console.log("Advertisement received!");
-                
-                event.manufacturerData.forEach((valueDataView) => {
-                    const rawStr = new TextDecoder().decode(valueDataView);
-                    
-                    // Hunt for the IP pattern: XXX.XXX.XXX.XXX
-                    const ipMatch = rawStr.match(/\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/);
-
-                    if (ipMatch) {
-                        const cleanIP = ipMatch[0];
-                        status.innerHTML = `Success!<br><span class="ip-val">${cleanIP}</span><br>Redirecting...`;
-                        
-                        // Success! Stop watching and head to the URL
-                        setTimeout(() => {
-                            window.location.href = `http://${cleanIP}`;
-                        }, 2000);
-                    }
-                });
-            }, { signal: abortController.signal });
-
-            // 3. Start the "Watching" process
-            if (device.watchAdvertisements) {
-                await device.watchAdvertisements();
-            }
-
-            // 4. THE NUDGE
-            // Sometimes Android caches old data. Connecting briefly forces 
-            // the OS to refresh the Manufacturer Data from the ESP32.
-            try {
-                const server = await device.gatt.connect();
-                status.innerHTML = "<b>Connected!</b><br>Refreshing data stream...";
-                
-                // Wait a moment while connected to let the advertisement cache update
-                await new Promise(r => setTimeout(r, 1500));
-                
-                await server.disconnect();
-                status.innerHTML = "Searching broadcast for IP...";
-            } catch (gattErr) {
-                console.log("GATT Nudge failed, relying on passive scan.");
-            }
-
-        } catch (error) {
-            console.error(error);
-            if (error.name === 'NotFoundError') {
-                status.innerHTML = "Scan cancelled.";
-            } else {
-                status.innerHTML = `<span class="error">Error: ${error.message}</span>`;
-            }
-        }
-    });
-</script>
-
 </body>
 </html>
