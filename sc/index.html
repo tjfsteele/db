@@ -11,29 +11,32 @@
             try {
                 status.innerText = "Requesting Scorebox...";
                 
-                // 1. Request the device by name
+                // 1. Find the device
                 const device = await navigator.bluetooth.requestDevice({
                     filters: [{ name: 'Scorebox' }],
-                    optionalServices: [] // We don't need services, just the adv data
+                    optionalServices: ['device_information'] // Standard service
                 });
-
-                status.innerText = "Found! Reading IP data...";
-
-                // 2. Listen for the advertisement packet
-                device.addEventListener('advertisementreceived', (event) => {
-                    // manufacturerData is a Map. Key is the Company ID (e.g. 0xFFFF)
-                    event.manufacturerData.forEach((valueDataView) => {
-                        
-                        status.innerText = `Redirecting to http://${valueDataView}...`;
-                        
-                        // 3. Open the browser to that IP
-                        window.location.href = `http://${ipAddress}`;
-                    });
-                });
-
-                // 4. Start watching for those packets
-                await device.watchAdvertisements();
-
+        
+                status.innerText = "Found! Connecting...";
+                
+                // 2. Connect to the GATT Server
+                const server = await device.gatt.connect();
+                
+                status.innerText = "Connected! Reading IP...";
+        
+                // 3. Get the Service (Using 'device_information' as a placeholder)
+                const service = await server.getPrimaryService('device_information');
+                
+                // 4. Get the Characteristic (Using 'serial_number_string' or similar)
+                // Note: You'll need to make sure your Scorebox provides the IP here!
+                const characteristic = await service.getCharacteristic('serial_number_string');
+                
+                const value = await characteristic.readValue();
+                const ipAddress = new TextDecoder().decode(value);
+        
+                status.innerText = `Opening http://${ipAddress}...`;
+                window.location.href = `http://${ipAddress}`;
+        
             } catch (error) {
                 status.innerText = "Error: " + error;
                 console.error(error);
