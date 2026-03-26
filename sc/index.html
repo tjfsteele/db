@@ -22,54 +22,58 @@
 
 <script>
     const btn = document.getElementById('btn');
-    const status = document.getElementById('status');
+const status = document.getElementById('status');
 
-    btn.addEventListener('click', async () => {
-        try {
-            status.innerText = "Requesting Bluetooth...";
-            
-            // Look for the new shortened name
-            const device = await navigator.bluetooth.requestDevice({
-                filters: [{ name: 'Scorebox' }],
-                optionalServices: [0xDEAD] 
-            });
+btn.addEventListener('click', async () => {
+    try {
+        status.innerText = "Scanning for SBox...";
+        
+        // 1. Trigger the picker
+        const device = await navigator.bluetooth.requestDevice({
+            filters: [{ name: 'SBox' }], // Ensure this matches your ESP32 setName
+            optionalServices: [0xDEAD]
+        });
 
-            status.innerHTML = "<b>Found SBox!</b><br>Reading IP from broadcast...";
+        status.innerHTML = "<b>Found Scorebox!</b><br>Extracting IP address...";
 
-            device.addEventListener('advertisementreceived', (event) => {
-                if (event.manufacturerData && event.manufacturerData.size > 0) {
-                    // Pull the string from manufacturer data
-                    const dataView = event.manufacturerData.values().next().value;
-                    const rawStr = new TextDecoder().decode(dataView);
+        // 2. Listen for the advertisement we already know is there
+        device.addEventListener('advertisementreceived', (event) => {
+            console.log("Advertisement packet received");
+
+            event.manufacturerData.forEach((valueDataView) => {
+                const decoder = new TextDecoder('utf-8');
+                const rawStr = decoder.decode(valueDataView);
+                
+                // This looks specifically for a sequence of: 
+                // [numbers].[numbers].[numbers].[numbers]
+                const ipMatch = rawStr.match(/\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/);
+
+                if (ipMatch) {
+                    const cleanIP = ipMatch[0];
+                    status.innerHTML = `Success!<br>IP: <span class="ip-val">${cleanIP}</span><br>Redirecting...`;
                     
-                    // Regex: extract digits and dots only
-                    const cleanIP = rawStr.replace(/[^\d.]/g, '');
+                    // Stop watching to save battery/resources
+                    device.watchAdvertisements({once: true});
 
-                    if (cleanIP.length >= 7 && cleanIP.includes('.')) {
-                        status.innerHTML = `Connected to Scorebox!<br><span class="ip-val">${cleanIP}</span><br>Opening browser in 2s...`;
-                        
-                        // Stop scanning
-                        device.watchAdvertisements({once: true});
-
-                        setTimeout(() => {
-                            window.location.href = `http://${cleanIP}`;
-                        }, 2000);
-                    } else {
-                        status.innerText = "Received data, but IP was empty or invalid.";
-                    }
+                    setTimeout(() => {
+                        window.location.href = `http://${cleanIP}`;
+                    }, 2000);
                 }
             });
+        });
 
-            // Start the listener
-            await device.watchAdvertisements();
+        // 3. Start the "Watching" process
+        await device.watchAdvertisements();
 
-        } catch (error) {
+    } catch (error) {
+        if (error.name === 'NotFoundError') {
+            status.innerText = "Scan cancelled.";
+        } else {
             status.innerText = "Error: " + error.message;
-            if (error.message.includes("watchAdvertisements")) {
-                status.innerHTML += "<br><b>Enable 'Experimental Web Platform features' in chrome://flags</b>";
-            }
+            console.error(error);
         }
-    });
+    }
+});
 </script>
 
 </body>
