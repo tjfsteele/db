@@ -6,39 +6,50 @@
     <p id="status">Click the button to scan...</p>
 
     <script>
-        document.getElementById('scanBtn').addEventListener('click', async () => {
-            const status = document.getElementById('status');
+        const scanBtn = document.getElementById('scanBtn');
+        const status = document.getElementById('status');
+        
+        scanBtn.addEventListener('click', async () => {
             try {
-                status.innerText = "Requesting Scorebox...";
+                status.innerText = "Requesting Scan Permission...";
                 
-                // 1. Find the device
-                const device = await navigator.bluetooth.requestDevice({
+                // 1. Request a scan for a specific name
+                const scan = await navigator.bluetooth.requestLEScan({
                     filters: [{ name: 'Scorebox' }],
-                    optionalServices: ['device_information'] // Standard service
+                    keepRepeatedDevices: true
                 });
         
-                status.innerText = "Found! Connecting...";
-                
-                // 2. Connect to the GATT Server
-                const server = await device.gatt.connect();
-                
-                status.innerText = "Connected! Reading IP...";
+                status.innerText = "Scanning for Scorebox packets...";
         
-                // 3. Get the Service (Using 'device_information' as a placeholder)
-                const service = await server.getPrimaryService('device_information');
-                
-                // 4. Get the Characteristic (Using 'serial_number_string' or similar)
-                // Note: You'll need to make sure your Scorebox provides the IP here!
-                const characteristic = await service.getCharacteristic('serial_number_string');
-                
-                const value = await characteristic.readValue();
-                
+                // 2. Listen for the advertisement
+                navigator.bluetooth.addEventListener('advertisementreceived', event => {
+                    if (event.device.name === 'Scorebox') {
+                        status.innerText = "Scorebox found! Extracting IP...";
+                        
+                        // 3. Extract Manufacturer Data
+                        // event.manufacturerData is a Map of [CompanyID, DataView]
+                        for (let [companyId, dataView] of event.manufacturerData) {
+                            const decoder = new TextDecoder('utf-8');
+                            const ipAddress = decoder.decode(dataView);
+                            
+                            // Cleanup any non-printable characters or whitespace
+                            const cleanIP = ipAddress.replace(/[^\d.]/g, ''); 
         
-                status.innerText = `Opening http://${value}...`;
-                window.location.href = `http://${value}`;
+                            if (cleanIP.includes('.')) {
+                                status.innerText = `IP Found: ${cleanIP}. Opening...`;
+                                scan.stop(); // Stop scanning once found
+                                
+                                setTimeout(() => {
+                                    window.location.href = `http://${cleanIP}`;
+                                }, 800);
+                                return;
+                            }
+                        }
+                    }
+                });
         
             } catch (error) {
-                status.innerText = "Error: " + error;
+                status.innerText = "Scan failed: " + error;
                 console.error(error);
             }
         });
