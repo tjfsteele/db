@@ -25,64 +25,55 @@
 <script>
     const scanBtn = document.getElementById('scanBtn');
     const status = document.getElementById('status');
-
+    
     scanBtn.addEventListener('click', async () => {
         try {
-            status.innerText = "Requesting Bluetooth access...";
+            status.innerText = "Searching for Scorebox...";
             
-            // 1. Ask user to pick the Scorebox
+            // Use a broader filter to ensure the background scanner stays active
             const device = await navigator.bluetooth.requestDevice({
                 filters: [{ name: 'Scorebox' }],
-                optionalServices: [0xDEAD] // Whitelisting your custom service
+                optionalServices: [0xDEAD, 'device_information']
             });
-
-            status.innerHTML = "Scorebox selected.<br>Waiting for advertisement packet...";
-
-            // 2. Set up the listener for the Manufacturer Data
+    
+            status.innerHTML = "<b>Scorebox Found!</b><br>Listening for IP packet...";
+    
+            // Set up a timeout hint
+            const timeoutHint = setTimeout(() => {
+                if (status.innerText.includes("Listening")) {
+                    status.innerHTML += "<br><i style='font-size:0.8em'>Still waiting... is the Scorebox broadcasting?</i>";
+                }
+            }, 5000);
+    
             device.addEventListener('advertisementreceived', (event) => {
-                console.log("Advertisement received...");
-
-                // 3. Iterate through Manufacturer Data Map
-                event.manufacturerData.forEach((valueDataView, companyId) => {
+                console.log("Packet detected!", event);
+                
+                if (event.manufacturerData && event.manufacturerData.size > 0) {
+                    clearTimeout(timeoutHint);
+                    
+                    // Pull the first available manufacturer data entry
+                    const dataView = event.manufacturerData.values().next().value;
                     const decoder = new TextDecoder('utf-8');
-                    const rawData = decoder.decode(valueDataView);
+                    const rawString = decoder.decode(dataView);
                     
-                    // Regex to extract only the IP (numbers and dots)
-                    // This ignores the 'XX' prefix bytes automatically
-                    const foundIP = rawData.replace(/[^\d.]/g, '').trim();
-
-                    // 4. Handle empty or invalid IP strings
-                    if (!foundIP || foundIP.length < 7 || !foundIP.includes('.')) {
-                        status.innerText = "Found data, but IP address appears empty or invalid.";
-                        return;
+                    // Clean the IP: Keep only numbers and dots
+                    const cleanIP = rawString.replace(/[^\d.]/g, '');
+    
+                    if (cleanIP.length >= 7 && cleanIP.includes('.')) {
+                        status.innerHTML = `Success!<br>IP: <span class="ip-display">${cleanIP}</span><br>Redirecting...`;
+                        
+                        setTimeout(() => {
+                            window.location.href = `http://${cleanIP}`;
+                        }, 2000);
                     }
-
-                    // 5. Success UI and Delay
-                    status.innerHTML = `Found Scorebox at:<br><span class="ip-display">${foundIP}</span><br>Redirecting in 2 seconds...`;
-                    
-                    // Stop watching once we have the prize
-                    device.watchAdvertisements({once: true}); 
-
-                    setTimeout(() => {
-                        window.location.href = `http://${foundIP}`;
-                    }, 2000);
-                });
+                }
             });
-
-            // 6. Start the "watching" process (Experimental API)
-            if (device.watchAdvertisements) {
-                await device.watchAdvertisements();
-            } else {
-                status.innerText = "Error: Your browser doesn't support advertisement watching. Please enable 'Experimental Web Platform features' in chrome://flags.";
-            }
-
+    
+            // CRITICAL: This is what triggers the 'advertisementreceived' event
+            await device.watchAdvertisements();
+    
         } catch (error) {
-            if (error.name === 'NotFoundError') {
-                status.innerText = "Scan cancelled.";
-            } else {
-                status.innerText = "Error: " + error.message;
-                console.error(error);
-            }
+            status.innerText = "Error: " + error.message;
         }
     });
 </script>
