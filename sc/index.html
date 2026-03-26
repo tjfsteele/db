@@ -15,7 +15,7 @@
 <body>
 
 <div class="card">
-    <h2>Scorebox VII</h2>
+    <h2>Scorebox VIII</h2>
     <button id="go">Find Scorebox</button>
     <div id="status">Ready</div>
 </div>
@@ -29,7 +29,7 @@
             status.innerText = "Selecting device...";
             const device = await navigator.bluetooth.requestDevice({
                 filters: [{ name: 'Scorebox' }],
-                optionalServices: ['dead'] // NimBLE uses lowercase UUIDs in JS
+                optionalServices: ['0000dead-0000-1000-8000-00805f9b34fb']
             });
 
             let ipFound = false;
