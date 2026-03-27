@@ -25,6 +25,38 @@
     const status = document.getElementById('status');
     let ipFound = false;
 
+    // 1. Function to check if the 192.168.4.1 hotspot is already available
+    async function checkHotspot() {
+        status.innerText = "Checking for Scorebox Hotspot...";
+        
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 1500); // 1.5s timeout
+
+        try {
+            // Attempt to fetch from the Scorebox IP. 
+            // 'no-cors' allows the request to complete even if CORS is not enabled on the target.
+            await fetch('http://192.168.4.1', { 
+                mode: 'no-cors', 
+                signal: controller.signal 
+            });
+            
+            // If the fetch succeeds, we are likely connected to the hotspot
+            status.innerHTML = "<b>Hotspot Found!</b><br>Redirecting...";
+            setTimeout(() => {
+                window.location.replace("http://192.168.4.1");
+            }, 500);
+            return true;
+        } catch (e) {
+            status.innerText = "Ready";
+            return false;
+        } finally {
+            clearTimeout(timeoutId);
+        }
+    }
+
+    // Run the hotspot check automatically when the page loads
+    window.addEventListener('load', checkHotspot);
+
     // Helper for waiting
     const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
