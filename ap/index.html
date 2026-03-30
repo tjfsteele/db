@@ -2,7 +2,6 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="refresh" content="60">
     <title>Agile Tracker</title>
     <style>
         body { 
@@ -38,20 +37,17 @@
         
         .bar.current { 
             background: #fff !important; 
-            border: 3px solid #000 !important; /* Thick border makes it stand out */
+            border: 3px solid #000 !important;
             width: 10px; 
-            /* Height will now be set by JavaScript based on price */
         }
         .hour-label { font-size: 11px; margin-top: 5px; height: 15px; }
         body.inverting {
             background-color: black !important;
-            color: black !important; /* Hides text during the flash */
         }
         body.inverting * {
             visibility: hidden;
         }
         
-        /* The shift class to use that 25% whitespace */
         .shifted { 
             padding-top: 80px; 
         }
@@ -73,65 +69,46 @@
 
     <div id="debug-log" style="font-size: 12px; color: #666; text-align: left; margin: 10px; border-top: 1px dashed #ccc; padding-top: 5px;">
     </div>
+
     <script>
         var SCRIPT_URL = "https://script.google.com/macros/s/AKfycby4gf4zULR-cQzekmZpXoBs5txrVYr7TJIQWCcwfbwkVy1uqrpz1aniyvkweHTfRbue/exec";
         var queryString = window.location.search.substring(1); 
         var region = (queryString.length > 0) ? queryString.charAt(0).toUpperCase() : "A";
         document.getElementById('reg-label').innerHTML = region;
-    
+
+        // NEW: Track current state to avoid unnecessary DOM updates
+        var currentSlotId = ""; 
+
         function handleAgileData(data) {
             if (data && Array.isArray(data)) {
-                // FORCE CHRONOLOGICAL SORT: Compare the 's' (start) strings alphabetically
-                // This is the most reliable way to get Left-to-Right on older browsers
-                data.sort(function(a, b) {
-                    return a.s.localeCompare(b.s);
-                });
-                
+                data.sort(function(a, b) { return a.s.localeCompare(b.s); });
                 localStorage.setItem('agile_data_' + region, JSON.stringify(data));
-                log("Sorted " + data.length + " slots.");
+                log("Data updated: " + data.length + " slots.");
                 updateUI();
-            } else {
-                log("JSONP Error: Data format unexpected");
             }
         }
             
         function drawGraph(schedule, currentIdx) {
             var wrapper = document.getElementById('graph-wrapper');
             wrapper.innerHTML = '';
-            
-            // Window: 8 bars before, 32 after
             var startIdx = Math.max(0, currentIdx - 8); 
             var endIdx = Math.min(schedule.length, startIdx + 40);
         
             for (var i = startIdx; i < endIdx; i++) {
                 var item = schedule[i];
-                
-                // Create the container for bar + label
                 var group = document.createElement('div');
                 group.style.display = "inline-block";
                 group.style.width = "12px";
                 group.style.textAlign = "center";
-        
-                // Create the bar
                 var bar = document.createElement('div');
                 bar.className = 'bar' + (i === currentIdx ? ' current' : '');
-                
-                // Calculate height based on price (v) [cite: 7]
-                // If price is 29.5, height is 59px.
                 var val = Math.max(0, item.v); 
                 var height = Math.max(2, Math.min(100, val * 2)); 
                 bar.style.height = height + 'px';
-        
-                // Create the hour label
                 var label = document.createElement('div');
                 label.style.fontSize = "10px";
                 var d = new Date(item.s);
-                if (d.getMinutes() === 0) {
-                    label.innerHTML = d.getHours();
-                } else {
-                    label.innerHTML = "&nbsp;";
-                }
-        
+                label.innerHTML = (d.getMinutes() === 0) ? d.getHours() : "&nbsp;";
                 group.appendChild(bar);
                 group.appendChild(label);
                 wrapper.appendChild(group);
@@ -151,12 +128,11 @@
     
         function fetchData() {
             localStorage.setItem('last_attempt_' + region, new Date().getTime());
-            log("Fetching...");
+            log("Fetching new data...");
             var old = document.getElementById('jsonp-request');
             if (old) old.parentNode.removeChild(old);
             var s = document.createElement('script');
             s.id = 'jsonp-request';
-            // Request with callback parameter [cite: 8]
             s.src = SCRIPT_URL + "?region=" + region + "&callback=handleAgileData&t=" + new Date().getTime();
             document.body.appendChild(s);
         }
@@ -170,30 +146,19 @@
         
             if (!cached) { fetchData(); return; }
         
-            // 1. Handle the "Shift" to prevent burn-in (alternates every minute)
-            if (currentMin % 2 === 0) {
-                document.body.classList.add('shifted');
-            } else {
-                document.body.classList.remove('shifted');
-            }
+            // Shift for burn-in (alternates every minute)
+            document.body.classList.toggle('shifted', currentMin % 2 === 0);
         
-            // 2. Decide if we should do the Black Flash (Only on :00 and :30)
+            // Decide if we flash (Only on :00 and :30)
             var shouldFlash = (currentMin === 0 || currentMin === 30);
+            if (shouldFlash) document.body.classList.add('inverting');
         
-            if (shouldFlash) {
-                document.body.classList.add('inverting');
-            }
-        
-            // This timeout runs every minute, but only clears the black screen 
-            // if it was actually applied.
             setTimeout(function() {
                 document.body.classList.remove('inverting');
-                
                 try {
                     var schedule = JSON.parse(cached);
                     var foundIdx = -1;
         
-                    // Find current time slot 
                     for (var i = 0; i < schedule.length; i++) {
                         if (nowTime >= new Date(schedule[i].s).getTime() && 
                             nowTime < new Date(schedule[i].e).getTime()) {
@@ -204,23 +169,32 @@
         
                     if (foundIdx !== -1) {
                         var item = schedule[foundIdx];
-                        document.getElementById('price').innerHTML = item.v.toFixed(1);
-                        document.getElementById('slot-time').innerHTML = formatTime(item.s) + " - " + formatTime(item.e);
-                        document.getElementById('next-price').innerHTML = schedule[foundIdx+1] ? schedule[foundIdx+1].v.toFixed(1) : "--";
-                        drawGraph(schedule, foundIdx);
+                        var newId = item.s + item.v; // Unique ID for this slot and price
+
+                        // ONLY update the DOM if the slot or price has actually changed
+                        if (newId !== currentSlotId) {
+                            currentSlotId = newId;
+                            document.getElementById('price').innerHTML = item.v.toFixed(1);
+                            document.getElementById('slot-time').innerHTML = formatTime(item.s) + " - " + formatTime(item.e);
+                            document.getElementById('next-price').innerHTML = schedule[foundIdx+1] ? schedule[foundIdx+1].v.toFixed(1) : "--";
+                            drawGraph(schedule, foundIdx);
+                            log("UI Updated for new slot.");
+                        }
                     }
         
-                    // Fetch logic for 4pm price releases
+                    // Background fetch logic
                     var lastEntry = new Date(schedule[schedule.length - 1].e);
                     var isDataOnlyForToday = (lastEntry.getDate() === now.getDate());
                     if ((now.getHours() >= 16 && isDataOnlyForToday) || foundIdx === -1) {
-                        if (nowTime - lastAttempt > 600000) { 
-                            fetchData();
-                        }
+                        if (nowTime - lastAttempt > 600000) fetchData();
                     }
                 } catch(e) { log("UI Error"); fetchData(); }
-            }, shouldFlash ? 500 : 0); // Flash for 500ms if it's time, otherwise 0ms
+            }, shouldFlash ? 500 : 0);
         }
+
+        // Run UI update every 30 seconds to catch slot changes promptly
         updateUI();
+        setInterval(updateUI, 30000); 
     </script>
 </body>
+</html>
