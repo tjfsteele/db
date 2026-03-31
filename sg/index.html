@@ -1,147 +1,3 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Professional Cricket Scoreboard</title>
-    <style>
-        :root {
-            --orange: #FFAC00;
-            --white: #FFFFFF;
-            --grey: #888888;
-            --bg: #000000;
-            --border: #222222;
-        }
-
-        body {
-            background-color: #1a1a1a;
-            color: var(--white);
-            font-family: 'Arial Narrow', Arial, sans-serif;
-            display: flex;
-            justify-content: center;
-            padding-top: 30px;
-            text-transform: uppercase;
-        }
-
-        .scoreboard {
-            width: 900px;
-            background-color: var(--bg);
-            border: 2px solid var(--border);
-            padding: 25px;
-            position: relative;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-        }
-
-        #clock {
-            position: absolute;
-            top: 20px;
-            right: 25px;
-            font-size: 24px;
-            font-weight: bold;
-        }
-
-        .header { margin-bottom: 20px; }
-        #main-score { font-size: 58px; font-weight: 900; line-height: 1; margin-bottom: 5px; }
-        #bowling-team { font-size: 24px; color: var(--grey); }
-
-        .section-label {
-            background: #151515;
-            font-size: 12px;
-            padding: 5px 10px;
-            color: #666;
-            margin-top: 15px;
-            letter-spacing: 1px;
-        }
-
-        .data-row {
-            display: flex;
-            justify-content: space-between;
-            padding: 10px;
-            font-size: 30px;
-            font-weight: bold;
-            border-bottom: 1px solid #111;
-        }
-
-        .orange { color: var(--orange); }
-        .white { color: var(--white); }
-        .name-col { flex: 1.5; }
-        .stat-col { flex: 1; text-align: right; font-family: monospace; }
-
-        .current-over-bar {
-            margin-top: 15px;
-            background: #111;
-            border: 1px solid #222;
-            padding: 12px;
-            display: flex;
-            align-items: center;
-        }
-        .co-label { font-size: 12px; color: var(--grey); margin-right: 15px; }
-        #cov-val { font-size: 22px; font-weight: bold; color: var(--white); letter-spacing: 5px; }
-
-        .sundry-container { margin-top: 15px; }
-        .sundry-row {
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            gap: 8px;
-            margin-bottom: 8px;
-        }
-        .info-box {
-            background: #080808;
-            border: 1px solid #1a1a1a;
-            padding: 10px;
-        }
-        .label { display: block; font-size: 11px; color: var(--grey); margin-bottom: 4px; }
-        .val { font-size: 20px; font-weight: bold; }
-    </style>
-</head>
-<body>
-
-<div class="scoreboard">
-    <div id="clock">00:00</div>
-
-    <div class="header">
-        <div id="main-score">---</div>
-        <div id="bowling-team">---</div>
-    </div>
-
-    <div class="section-label">BATSMEN</div>
-    <div class="data-row orange">
-        <span class="name-col" id="B1N"></span>
-        <span class="stat-col" id="B1-full"></span>
-    </div>
-    <div class="data-row white">
-        <span class="name-col" id="B2N"></span>
-        <span class="stat-col" id="B2-full"></span>
-    </div>
-
-    <div class="section-label">BOWLERS</div>
-    <div class="data-row orange">
-        <span class="name-col" id="F1N"></span>
-        <span class="stat-col" id="F1-full"></span>
-    </div>
-    <div class="data-row white">
-        <span class="name-col" id="F2N"></span>
-        <span class="stat-col" id="F2-full"></span>
-    </div>
-
-    <div class="current-over-bar">
-        <span class="co-label">CURRENT OVER</span>
-        <span id="cov-val"></span>
-    </div>
-
-    <div class="sundry-container">
-        <div class="sundry-row">
-            <div class="info-box"><span class="label">TO WIN</span><span class="val" id="target"></span></div>
-            <div class="info-box"><span class="label">RR</span><span class="val" id="rr"></span></div>
-            <div class="info-box"><span class="label">DLS</span><span class="val" id="dlp-value"></span></div>
-        </div>
-        <div class="sundry-row">
-            <div class="info-box"><span class="label">OVERS</span><span class="val" id="ovb"></span></div>
-            <div class="info-box"><span class="label">REQ</span><span class="val" id="req"></span></div>
-            <div class="info-box"><span class="label">REM (OVERS)</span><span class="val" id="rem"></span></div>
-        </div>
-    </div>
-</div>
-
 <script>
     function updateClock() {
         const now = new Date();
@@ -152,47 +8,52 @@
     setInterval(updateClock, 1000);
     updateClock();
 
-    const clean = (v) => (v === undefined || v === null) ? "" : v;
+    const clean = (v) => (v === undefined || v === null || v === "") ? "---" : v;
 
     async function update() {
         try {
             const res = await fetch('https://api.npoint.io/f92e069f4e7bf14b4e72');
             const d = await res.json();
 
-            document.getElementById('main-score').textContent = clean(d.BTS);
-            document.getElementById('bowling-team').textContent = clean(d.FTN);
+            // Header: Batting Team Name + Score and Fielding Team
+            // Using BTN (Somerset) and BTS (3/0)
+            document.getElementById('main-score').textContent = clean(d.BTN) + " " + clean(d.BTS);
+            document.getElementById('bowling-team').textContent = "V " + clean(d.FTN);
 
+            // Batsman 1 Calculation & Display
             let b1sr = (parseFloat(d.B1S) / parseFloat(d.B1B) * 100).toFixed(1);
-            let b2sr = (parseFloat(d.B2S) / parseFloat(d.B2B) * 100).toFixed(1);
-
             document.getElementById('B1N').textContent = clean(d.B1N);
-            document.getElementById('B1-full').textContent = clean(d.B1S) + " (" + clean(d.B1B) + ") " + (isNaN(b1sr) ? "" : b1sr);
+            document.getElementById('B1-full').textContent = clean(d.B1S) + " (" + clean(d.B1B) + ") SR: " + (isNaN(b1sr) ? "0.0" : b1sr);
             
+            // Batsman 2 Calculation & Display
+            let b2sr = (parseFloat(d.B2S) / parseFloat(d.B2B) * 100).toFixed(1);
             document.getElementById('B2N').textContent = clean(d.B2N);
-            document.getElementById('B2-full').textContent = clean(d.B2S) + " (" + clean(d.B2B) + ") " + (isNaN(b2sr) ? "" : b2sr);
+            document.getElementById('B2-full').textContent = clean(d.B2S) + " (" + clean(d.B2B) + ") SR: " + (isNaN(b2sr) ? "0.0" : b2sr);
 
+            // Bowlers (F1S usually contains the overs/runs/wickets string in your JSON)
             document.getElementById('F1N').textContent = clean(d.F1N);
             document.getElementById('F1-full').textContent = clean(d.F1S);
             
+            // If F2N is empty in your data, it will show "---"
             document.getElementById('F2N').textContent = clean(d.F2N);
             document.getElementById('F2-full').textContent = clean(d.F2S);
 
+            // Current Over
             document.getElementById('cov-val').textContent = clean(d.COV);
 
-            document.getElementById('target').textContent = clean(d.target);
-            document.getElementById('rr').textContent = clean(d.currRR);
-            // Assigning dlsPar to the DLS box
-            document.getElementById('dlp-value').textContent = clean(d.dlsPar);
-            document.getElementById('ovb').textContent = clean(d.OVB);
-            document.getElementById('req').textContent = clean(d.reqRuns);
-            document.getElementById('rem').textContent = clean(d.remOvers);
+            // Sundry / Match Info Mapping
+            document.getElementById('target').textContent = clean(d.BTT); // BTT: 14
+            document.getElementById('rr').textContent = clean(d.RRR);    // RRR: 0.56
+            document.getElementById('dlp-value').textContent = "N/A";     // Not in provided JSON
+            
+            // OVB is often used for Overs Bowled, but if missing, we use a placeholder
+            document.getElementById('ovb').textContent = clean(d.F1S).split(' ')[1] || "0.0"; 
+            document.getElementById('req').textContent = clean(d.BTT - parseInt(d.BTS)); // Simple math for runs required
+            document.getElementById('rem').textContent = clean(d.LWN) || "---"; // Last Wicket Name as fallback
 
-        } catch (e) { console.error(e); }
+        } catch (e) { console.error("Data fetch error:", e); }
     }
 
     setInterval(update, 5000);
     update();
 </script>
-
-</body>
-</html>
