@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Cricket Scoreboard</title>
+<style>
+body {
+    background-color: #000;
+    color: #fff;
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+}
+
+#scoreboard {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+#header {
+    background-color: #222;
+    padding: 10px;
+}
+
+#header h1 {
+    font-size: 20px;
+    margin: 0;
+}
+
+#score-area {
+    background-color: #333;
+    padding: 20px;
+    margin-top: 10px;
+    border-radius: 5px;
+}
+
+#score-area .total {
+    font-size: 40px;
+    font-weight: bold;
+}
+
+#score-area .wickets {
+    font-size: 30px;
+}
+
+#batters, #bowlers {
+    margin-top: 20px;
+}
+
+#batters table, #bowlers table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+#batters th, #batters td, #bowlers th, #bowlers td {
+    border: 1px solid #555;
+    padding: 8px;
+    text-align: left;
+}
+
+#other-info {
+    margin-top: 20px;
+}
+</style>
+</head>
+<body>
+
+<div id="scoreboard">
+    <div id="header">
+        <h1 id="title">CRICKET MATCH</h1>
+    </div>
+    <div id="score-area">
+        <span class="total"></span>/
+        <span class="wickets"></span>
+    </div>
+    <div id="batters">
+        <h2>BATSMEN</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Batsman</th>
+                    <th>Runs</th>
+                </tr>
+            </thead>
+            <tbody id="batters-body">
+                <tr>
+                    <td id="b1-name"></td>
+                    <td id="b1-runs"></td>
+                </tr>
+                <tr>
+                    <td id="b2-name"></td>
+                    <td id="b2-runs"></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    <div id="bowlers">
+        <h2>BOWLERS</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Bowler</th>
+                    <th>Overs</th>
+                    <th>Runs</th>
+                    <th>Wickets</th>
+                </tr>
+            </thead>
+            <tbody id="bowlers-body">
+                <tr>
+                    <td id="bw1-name"></td>
+                    <td id="bw1-overs"></td>
+                    <td id="bw1-runs"></td>
+                    <td id="bw1-wickets"></td>
+                </tr>
+                <tr>
+                    <td id="bw2-name"></td>
+                    <td id="bw2-overs"></td>
+                    <td id="bw2-runs"></td>
+                    <td id="bw2-wickets"></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    <div id="other-info">
+        <h3>OTHER INFO</h3>
+        <p>Target: <span id="target"></span></p>
+        <p>Req. Run Rate: <span id="req-run-rate"></span></p>
+    </div>
+</div>
+
+<script>
+    function updateScoreboard() {
+        fetch('https://api.npoint.io/f92e069f4e7bf14b4e72')
+        .then(response => response.json())
+        .then(data => {
+            document.querySelector('#score-area .total').innerText = data.score;
+            document.querySelector('#score-area .wickets').innerText = data.wickets;
+
+            document.getElementById('b1-name').innerText = data.B1N;
+            document.getElementById('b1-runs').innerText = data.B1R;
+            document.getElementById('b2-name').innerText = data.B2N;
+            document.getElementById('b2-runs').innerText = data.B2R;
+
+            document.getElementById('bw1-name').innerText = data.BW1N;
+            document.getElementById('bw1-overs').innerText = data.BW1O;
+            document.getElementById('bw1-runs').innerText = data.BW1R;
+            document.getElementById('bw1-wickets').innerText = data.BW1W;
+            document.getElementById('bw2-name').innerText = data.BW2N;
+            document.getElementById('bw2-overs').innerText = data.BW2O;
+            document.getElementById('bw2-runs').innerText = data.BW2R;
+            document.getElementById('bw2-wickets').innerText = data.BW2W;
+
+            document.getElementById('target').innerText = data.target;
+            document.getElementById('req-run-rate').innerText = data.reqRR;
+        })
+        .catch(error => {
+            console.error('Error fetching data:', error);
+        });
+    }
+
+    updateScoreboard(); // Initial update
+    setInterval(updateScoreboard, 10000); // Update every 10 seconds
+</script>
+
+</body>
+</html>
