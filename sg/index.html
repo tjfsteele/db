@@ -99,7 +99,7 @@
     <div id="clock">00:00</div>
 
     <div class="header">
-        <div id="main-score">LOADING...</div>
+        <div id="main-score">---</div>
         <div id="bowling-team">---</div>
     </div>
 
@@ -132,18 +132,19 @@
         <div class="sundry-row">
             <div class="info-box"><span class="label">TO WIN</span><span class="val" id="target"></span></div>
             <div class="info-box"><span class="label">REQ RR</span><span class="val" id="rrr"></span></div>
-            <div class="info-box"><span class="label">LAST WKT</span><span class="val" id="lwk"></span></div>
+            <div class="info-box"><span class="label">DLS PAR</span><span class="val" id="dls-value"></span></div>
         </div>
         <div class="sundry-row">
             <div class="info-box"><span class="label">OVERS</span><span class="val" id="ovs-current"></span></div>
             <div class="info-box"><span class="label">RR</span><span class="val" id="crr"></span></div>
-            <div class="info-box"><span class="label">DLS PAR</span><span class="val" id="dls">---</span></div>
+            <div class="info-box"><span class="label">LAST WKT</span><span class="val" id="lwk"></span></div>
         </div>
     </div>
 </div>
 
 <script>
-    const clean = (v) => (v === undefined || v === null || v === "") ? "" : v;
+    // Utility to ensure empty strings instead of null/undefined
+    const clean = (v) => (v === undefined || v === null) ? "" : v;
 
     function updateClock() {
         const clockEl = document.getElementById('clock');
@@ -160,50 +161,50 @@
             const res = await fetch('https://api.npoint.io/f92e069f4e7bf14b4e72');
             const d = await res.json();
 
-            // Batting Team and Score
+            // Main Score Header
             document.getElementById('main-score').textContent = clean(d.BTN) + " " + clean(d.BTS);
             document.getElementById('bowling-team').textContent = "V " + clean(d.FTN);
 
-            // Batsman 1
+            // Batsmen
             let b1sr = (parseFloat(d.B1S) / parseFloat(d.B1B) * 100).toFixed(1);
-            document.getElementById('B1N').textContent = clean(d.B1N);
-            document.getElementById('B1-full').textContent = clean(d.B1S) + " (" + clean(d.B1B) + ") " + (isNaN(b1sr) ? "0.0" : b1sr);
+            document.getElementById('B1N').textContent = clean(d.B1N) || "---";
+            document.getElementById('B1-full').textContent = clean(d.B1S) + " (" + clean(d.B1B) + ") " + (isNaN(b1sr) ? "" : b1sr);
             
-            // Batsman 2
             let b2sr = (parseFloat(d.B2S) / parseFloat(d.B2B) * 100).toFixed(1);
-            document.getElementById('B2N').textContent = clean(d.B2N);
-            document.getElementById('B2-full').textContent = clean(d.B2S) + " (" + clean(d.B2B) + ") " + (isNaN(b2sr) ? "0.0" : b2sr);
+            document.getElementById('B2N').textContent = clean(d.B2N) || "---";
+            document.getElementById('B2-full').textContent = clean(d.B2S) + " (" + clean(d.B2B) + ") " + (isNaN(b2sr) ? "" : b2sr);
 
-            // Bowlers (F1S usually contains runs/wickets/overs in your JSON)
-            document.getElementById('F1N').textContent = clean(d.F1N);
+            // Bowlers
+            document.getElementById('F1N').textContent = clean(d.F1N) || "---";
             document.getElementById('F1-full').textContent = clean(d.F1S);
-            document.getElementById('F2N').textContent = clean(d.F2N);
+            document.getElementById('F2N').textContent = clean(d.F2N) || "---";
             document.getElementById('F2-full').textContent = clean(d.F2S);
 
-            // Over Details
+            // Current Over
             document.getElementById('cov-val').textContent = clean(d.COV);
 
-            // Bottom Info Grid
+            // Match Info Grid
             document.getElementById('target').textContent = clean(d.BTT);
             document.getElementById('rrr').textContent = clean(d.RRR);
-            document.getElementById('lwk').textContent = clean(d.LWK) + " " + clean(d.LWN);
             
-            // Extracting Overs from Bowler string if OVB is missing
+            // DLS PAR: Explicitly empty if missing from data
+            document.getElementById('dls-value').textContent = clean(d.DLP); 
+            
+            // Extract Overs from Bowler string "(0.3)"
             const oversMatch = d.F1S ? d.F1S.match(/\(([^)]+)\)/) : null;
-            document.getElementById('ovs-current').textContent = oversMatch ? oversMatch[1] : "0.0";
+            document.getElementById('ovs-current').textContent = oversMatch ? oversMatch[1] : "";
             
-            document.getElementById('crr').textContent = clean(d.CRR) || "0.00";
+            document.getElementById('crr').textContent = clean(d.CRR);
+            document.getElementById('lwk').textContent = clean(d.LWK) + " " + clean(d.LWN);
 
         } catch (e) { 
-            console.error("Failed to fetch scoreboard data:", e); 
+            console.error("Scoreboard update failed:", e); 
         }
     }
 
-    // Wait for the DOM to be ready before running scripts
     document.addEventListener('DOMContentLoaded', () => {
         updateClock();
         setInterval(updateClock, 1000);
-
         updateScoreboard();
         setInterval(updateScoreboard, 5000);
     });
