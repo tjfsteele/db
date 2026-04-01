@@ -2,224 +2,154 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Live Cricket Scoreboard</title>
+    <title>Chromecast Scoreboard</title>
     <style>
-        body { background-color: #000; color: #fff; font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
-        .scoreboard-container { width: 950px; background: #000; border: 1px solid #333; padding: 25px; box-shadow: 0 0 40px rgba(0,0,0,0.5); }
-        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #444; padding-bottom: 10px; margin-bottom: 20px; }
-        .team-names { font-size: 1.5em; font-weight: bold; color: #FFD700; text-transform: uppercase; }
-        .clock { font-size: 1.5em; color: #fff; font-family: monospace; }
+        body { background-color: #000; color: #fff; font-family: Arial, sans-serif; margin: 0; padding: 20px; }
+        .scoreboard-container { width: 920px; margin: 0 auto; border: 1px solid #333; padding: 20px; }
         
-        .score-row { display: flex; justify-content: center; align-items: baseline; gap: 15px; margin-bottom: 30px; }
-        .total-score { font-size: 6.5em; font-weight: 900; line-height: 1; letter-spacing: -2px; }
-        .overs { font-size: 2.2em; color: #888; }
-        
-        .grid-container { display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 40px; }
-        
-        .section-header-row { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #444; margin-bottom: 12px; margin-top: 20px; }
-        .section-header { color: #888; text-transform: uppercase; font-size: 0.85em; letter-spacing: 1.5px; padding-bottom: 5px; }
-        
-        .toggle-btn { background: #222; border: 1px solid #444; color: #FFD700; padding: 4px 12px; font-size: 0.75em; cursor: pointer; text-transform: uppercase; border-radius: 3px; }
-        .toggle-btn:hover { background: #FFD700; color: #000; }
-        .active-view-label { color: #FFD700; font-weight: bold; }
+        /* Layout Fix: Floats instead of Grid for old Chrome versions */
+        .left-col { float: left; width: 550px; }
+        .right-col { float: right; width: 330px; }
+        .clearfix { clear: both; }
 
-        .player-row { display: flex; justify-content: space-between; padding: 5px 0; font-size: 1.1em; border-bottom: 1px solid #1a1a1a; min-height: 1.5em; }
+        .header { border-bottom: 2px solid #444; padding-bottom: 10px; margin-bottom: 20px; }
+        .team-names { font-size: 32px; font-weight: bold; color: #FFD700; }
         
-        .striker-active { color: #fff !important; font-weight: bold; }
-        .striker-active::after { content: ' *'; }
+        .score-row { text-align: center; margin-bottom: 20px; }
+        .total-score { font-size: 90px; font-weight: bold; }
+        .overs { font-size: 30px; color: #888; }
+
+        .section-header { color: #888; border-bottom: 1px solid #444; margin: 15px 0 10px 0; font-size: 14px; text-transform: uppercase; }
         
-        .bowler-stats { font-family: 'Courier New', monospace; color: #fff; font-weight: bold; }
+        .player-row { border-bottom: 1px solid #1a1a1a; padding: 5px 0; font-size: 18px; }
+        .player-name { float: left; }
+        .player-stat { float: right; color: #bbb; }
         
-        .info-item { display: flex; justify-content: space-between; padding: 6px 0; font-size: 1.1em; border-bottom: 1px solid #222; }
+        .info-item { border-bottom: 1px solid #222; padding: 8px 0; font-size: 18px; }
         .info-label { color: #aaa; }
-        .info-value { font-weight: bold; color: #fff; }
-        .dismissal-text { color: #bbb; font-size: 0.9em; text-align: right; }
+        .info-value { float: right; font-weight: bold; }
+        
+        .striker-active { font-weight: bold; color: #fff; }
+        .bowler-stats { font-family: monospace; font-weight: bold; }
     </style>
 </head>
 <body>
 
-<div class="scoreboard-container" id="main-board">
+<div class="scoreboard-container">
     <div class="header">
-        <div class="team-names"><span id="f1">TEAM A</span> v <span id="f3">TEAM B</span></div>
-        <div class="clock" id="wall-clock">00:00</div>
+        <div class="team-names" id="team-header">Loading Match...</div>
     </div>
 
     <div class="score-row">
-        <div class="total-score"><span id="main-runs">0</span>-<span id="main-wickets">0</span></div>
-        <div class="overs">(<span id="main-overs">0.0</span>)</div>
+        <span class="total-score" id="main-score">0-0</span>
+        <span class="overs" id="main-overs">(0.0)</span>
     </div>
 
-    <div class="grid-container">
-        <div class="batting-list">
-            <div class="section-header-row">
-                <div class="section-header">Batting: <span id="view-label" class="active-view-label">1st Innings</span></div>
-                <button id="toggle-btn" class="toggle-btn" onclick="toggleInnings()" style="display:none;">View Live</button>
-            </div>
-            <div id="batting-rows"></div>
-        </div>
+    <div class="left-col">
+        <div class="section-header">Batting: <span id="view-label">...</span></div>
+        <div id="batting-rows"></div>
+    </div>
 
-        <div class="right-column">
-            <div class="section-header-row"><div class="section-header" id="bowling-header">Bowling</div></div>
-            <div id="bowling-rows"></div>
+    <div class="right-col">
+        <div class="section-header" id="bowling-header">Bowling</div>
+        <div id="bowling-rows"></div>
 
-            <div id="match-info-section">
-                <div class="section-header-row"><div class="section-header">Match Info</div></div>
-                <div class="info-item"><span class="info-label">Current Over</span><span class="info-value" id="f321">-</span></div>
-                <div class="info-item"><span class="info-label">1st Innings Total</span><span class="info-value" id="f224">-</span></div>
-                <div class="info-item"><span class="info-label">Runs to Win</span><span class="info-value" id="f226">-</span></div>
-                <div class="info-item"><span class="info-label">Required RR</span><span class="info-value" id="f326">-</span></div>
-                <div class="info-item"><span class="info-label">Current RR</span><span class="info-value" id="f325">-</span></div>
-                <div class="info-item"><span class="info-label">DLS Par Score</span><span class="info-value" id="f605">-</span></div>
-            </div>
+        <div id="match-info-section" style="display:none;">
+            <div class="section-header">Match Info</div>
+            <div class="info-item"><span class="info-label">Runs to Win</span><span class="info-value" id="f226">-</span></div>
+            <div class="info-item"><span class="info-label">Required RR</span><span class="info-value" id="f326">-</span></div>
+            <div class="info-item"><span class="info-label">Current RR</span><span class="info-value" id="f325">-</span></div>
         </div>
     </div>
+    <div class="clearfix"></div>
 </div>
 
 <script>
-    let showingFirstInnings = true;
-    let hasSecondInningsStarted = false;
-    let cachedData = null;
+    // Using 'var' for 1st Gen Chromecast compatibility
+    var showingFirstInnings = false; 
+    var cachedData = null;
 
     function formatString(str) {
-        if (!str || str === "0" || str === "" || str === "   ") return "";
-        const lower = ["lbw", "c&b", "c", "b", "st", "not", "out", "run"];
-        return str.toLowerCase().split(' ').map(w => {
-            const clean = w.replace(/[.,]/g, "");
-            if (lower.includes(clean)) return w.toLowerCase();
-            const cap = (t, d) => t.split(d).map(p => p.length > 0 ? (p.startsWith('(') ? '('+p.charAt(1).toUpperCase()+p.slice(2) : p.charAt(0).toUpperCase()+p.slice(1)) : "").join(d);
-            return cap(cap(w, "'"), "-");
-        }).join(' ');
-    }
-
-    function toggleInnings() {
-        showingFirstInnings = !showingFirstInnings;
-        renderAll();
+        if (!str || str === "0" || str === "   ") return "";
+        return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
     }
 
     function renderAll() {
         if (!cachedData) return;
         
-        const label = document.getElementById('view-label');
-        const btn = document.getElementById('toggle-btn');
-        const infoSection = document.getElementById('match-info-section');
+        var data = cachedData;
+        var started = (data["282"] && data["282"] !== "0" && data["282"] !== "   ");
+        
+        // Auto-toggle: If looking at it on a TV, we want it to show the Live innings automatically
+        var view1st = false; // Add your own toggle logic if you have a remote/way to click
 
-        label.innerText = showingFirstInnings ? "1st Innings" : "2nd Innings (Live)";
-        btn.innerText = showingFirstInnings ? "View Live" : "View 1st Inns";
-        infoSection.style.display = showingFirstInnings ? "none" : "block";
+        document.getElementById('team-header').innerHTML = formatString(data["1"]) + " v " + formatString(data["3"]);
+        document.getElementById('view-label').innerHTML = view1st ? "1st Innings" : "Live Innings";
+        document.getElementById('match-info-section').style.display = view1st ? "none" : "block";
 
-        const runEl = document.getElementById('main-runs');
-        const wickEl = document.getElementById('main-wickets');
-        const overEl = document.getElementById('main-overs');
-
-        if (showingFirstInnings && hasSecondInningsStarted) {
-            // Field 224: 139
-            // Field 281: 139-8 (40)
-            const summaryStr = cachedData["281"] || "";
-            
-            // Extract Runs (before the hyphen)
-            const runsMatch = summaryStr.match(/^(\d+)/);
-            runEl.innerText = runsMatch ? runsMatch[1] : (cachedData["224"] || "0");
-
-            // Extract Wickets (between hyphen and space)
-            const wickMatch = summaryStr.match(/-(\d+)\s/);
-            wickEl.innerText = wickMatch ? wickMatch[1] : (cachedData["227"] || "0");
-
-            // Extract Overs (inside parentheses)
-            const overMatch = summaryStr.match(/\(([^)]+)\)/);
-            overEl.innerText = overMatch ? overMatch[1] : (cachedData["222"] || "0.0");
+        // Score logic
+        if (view1st) {
+            var summary = data["281"] || "";
+            document.getElementById('main-score').innerHTML = summary.split(' ')[0] || data["224"];
+            var ovMatch = summary.match(/\(([^)]+)\)/);
+            document.getElementById('main-overs').innerHTML = "(" + (ovMatch ? ovMatch[1] : "0.0") + ")";
         } else {
-            runEl.innerText = cachedData["208"] || "0";
-            wickEl.innerText = cachedData["209"] || "0";
-            overEl.innerText = cachedData["210"] || "0.0";
+            document.getElementById('main-score').innerHTML = data["208"] + "-" + data["209"];
+            document.getElementById('main-overs').innerHTML = "(" + data["210"] + ")";
         }
 
-        renderBatting(cachedData);
-        renderBowling(cachedData);
-    }
-
-    function renderBatting(data) {
-        const rows = document.getElementById('batting-rows');
-        rows.innerHTML = "";
-        const config = showingFirstInnings ? 
-            Array.from({length: 11}, (_, i) => ({ name: 269+i, status: 378+i })) :
-            Array.from({length: 11}, (_, i) => ({ name: 5+i, status: 16+i, striker: 82+i }));
-
-        config.forEach(cfg => {
-            const nameVal = data[cfg.name];
-            if (nameVal && nameVal !== "0" && nameVal !== "   ") {
-                const div = document.createElement('div');
-                div.className = 'player-row';
-                const isStriker = !showingFirstInnings && data[cfg.striker] === "*";
-                div.innerHTML = `<span class="${isStriker ? 'striker-active' : ''}">${formatString(nameVal)}</span>
-                                 <span class="dismissal-text">${formatString(data[cfg.status])}</span>`;
-                rows.appendChild(div);
-            }
-        });
-    }
-
-    function renderBowling(data) {
-        const container = document.getElementById('bowling-rows');
-        const header = document.getElementById('bowling-header');
-        container.innerHTML = "";
-        
-        let bowlers = [];
-        const nameOffset = showingFirstInnings ? 181 : 104;
-
-        for (let i = 0; i < 11; i++) {
-            const name = data[nameOffset + i];
-            const overs = data[115 + i];
-            if (name && name !== "   " && overs && parseFloat(overs) > 0) {
-                const isActive = !showingFirstInnings && (name === data[422] || name === data[429]);
-                bowlers.push({ 
-                    name, 
-                    stats: `${overs}-${data[126+i]}-${data[137+i]}-${data[148+i]}`, 
-                    active: isActive 
-                });
+        // Batting
+        var batRows = document.getElementById('batting-rows');
+        batRows.innerHTML = "";
+        var offset = view1st ? 269 : 5;
+        for (var i = 0; i < 11; i++) {
+            var name = data[offset + i];
+            if (name && name !== "   ") {
+                var div = document.createElement('div');
+                div.className = "player-row clearfix";
+                div.innerHTML = '<span class="player-name">' + formatString(name) + '</span>' +
+                                '<span class="player-stat">' + formatString(data[(view1st ? 378 : 16) + i]) + '</span>';
+                batRows.appendChild(div);
             }
         }
 
-        bowlers.sort((a, b) => b.active - a.active);
-        header.innerText = showingFirstInnings ? "1st Innings Bowling" : "2nd Innings Bowling";
-        
-        bowlers.forEach(b => {
-            const div = document.createElement('div');
-            div.className = 'player-row';
-            div.innerHTML = `<span style="${b.active ? 'font-weight: bold;' : ''}">${formatString(b.name)}</span>
-                             <span class="bowler-stats">${b.stats}</span>`;
-            container.appendChild(div);
-        });
-    }
-
-    async function fetchData() {
-        try {
-            // Added cache-busting timestamp
-            const res = await fetch('https://api.npoint.io/77a687a8b60218fa9525?t=' + new Date().getTime());
-            const data = await res.json();
-            cachedData = data;
-
-            const started = (data["282"] && data["282"] !== "0" && data["282"] !== "   ");
-            if (started && !hasSecondInningsStarted) { 
-                showingFirstInnings = false; 
-                hasSecondInningsStarted = true; 
+        // Bowling
+        var bowlRows = document.getElementById('bowling-rows');
+        bowlRows.innerHTML = "";
+        var bOffset = view1st ? 181 : 104;
+        for (var j = 0; j < 11; j++) {
+            var bName = data[bOffset + j];
+            var bOvers = data[115 + j];
+            if (bName && bName !== "   " && parseFloat(bOvers) > 0) {
+                var bDiv = document.createElement('div');
+                bDiv.className = "player-row clearfix";
+                bDiv.innerHTML = '<span class="player-name">' + formatString(bName) + '</span>' +
+                                 '<span class="player-stat bowler-stats">' + bOvers + '-' + data[126+j] + '-' + data[137+j] + '-' + data[148+j] + '</span>';
+                bowlRows.appendChild(bDiv);
             }
-            
-            document.getElementById('toggle-btn').style.display = started ? 'block' : 'none';
+        }
 
-            ["1", "3", "226", "325", "326", "605", "224", "321"].forEach(id => {
-                const el = document.getElementById(`f${id}`);
-                if (el) {
-                    let val = data[id];
-                    el.innerText = (!val || val === "0" || val === "   ") ? (id === "605" ? "---" : "-") : (["1", "3"].includes(id) ? formatString(val) : val);
-                }
-            });
-            
-            renderAll();
-        } catch (e) { console.error(e); }
+        // Match Info
+        document.getElementById('f226').innerHTML = data["226"] || "-";
+        document.getElementById('f326').innerHTML = data["326"] || "-";
+        document.getElementById('f325').innerHTML = data["325"] || "-";
     }
 
-    fetchData();
+    function fetchData() {
+        var xhr = new XMLHttpRequest();
+        // Cache busting for Chromecast
+        xhr.open('GET', 'https://api.npoint.io/77a687a8b60218fa9525?t=' + new Date().getTime(), true);
+        xhr.onreadystatechange = function() {
+            if (xhr.readyState === 4 && xhr.status === 200) {
+                cachedData = JSON.parse(xhr.responseText);
+                renderAll();
+            }
+        };
+        xhr.send();
+    }
+
     setInterval(fetchData, 5000);
-    setInterval(() => { document.getElementById('wall-clock').innerText = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }); }, 1000);
+    fetchData();
 </script>
 </body>
 </html>
