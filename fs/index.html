@@ -68,15 +68,30 @@
 
     // Legacy-safe capitalization function
     function formatString(str) {
-        if (!str || str === "0" || str === "" || str === "   ") return "";
-        var words = str.toLowerCase().split(' ');
-        for (var i = 0; i < words.length; i++) {
-            if (words[i].length > 0) {
-                words[i] = words[i].charAt(0).toUpperCase() + words[i].slice(1);
-            }
-        }
-        return words.join(' ');
+        if (!str || str.trim() === "" || str === "0") return "";
+    
+        const lower = str.toLowerCase();
+    
+        // Words that must stay lowercase in cricket notation
+        const keepLower = new Set([
+            "c", "b", "lbw", "st", "run", "out", "not"
+        ]);
+    
+        return lower
+            .split(" ")
+            .map(word => {
+                // If it's a cricket keyword, keep it lowercase
+                if (keepLower.has(word)) return word;
+    
+                // If it's a number, leave it alone
+                if (!isNaN(word)) return word;
+    
+                // Otherwise capitalise (names etc.)
+                return word.charAt(0).toUpperCase() + word.slice(1);
+            })
+            .join(" ");
     }
+
 
     function renderAll() {
         if (!cachedData) return;
