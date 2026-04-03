@@ -81,9 +81,15 @@
             .replace(/\brun out\b/g, "run out")
             .replace(/\bnot out\b/g, "not out");
     
-        // Words that must stay lowercase in cricket notation
+        // Fix missing fielder: "c b bowler" → "c ? b bowler"
+        lower = lower.replace(/\bc b ([a-z]+)/g, "c ? b $1");
+    
+        // Proper caught & bowled: "c smith b smith" → "c&b Smith"
+        lower = lower.replace(/\bc ([a-z]+) b \1\b/g, "c&b $1");
+    
+        // Words that must stay lowercase
         const keepLower = new Set([
-            "c", "b", "lbw", "st", "run", "out", "not"
+            "c", "b", "lbw", "st", "run", "out", "not", "c&b", "?"
         ]);
     
         return lower
