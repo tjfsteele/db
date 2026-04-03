@@ -70,7 +70,16 @@
     function formatString(str) {
         if (!str || str.trim() === "" || str === "0") return "";
     
-        const lower = str.toLowerCase();
+        let lower = str.toLowerCase().trim();
+    
+        // Normalise full cricket terms to abbreviations
+        lower = lower
+            .replace(/\bcaught\b/g, "c")
+            .replace(/\bbowled\b/g, "b")
+            .replace(/\bstumped\b/g, "st")
+            .replace(/\blbw\b/g, "lbw")
+            .replace(/\brun out\b/g, "run out")
+            .replace(/\bnot out\b/g, "not out");
     
         // Words that must stay lowercase in cricket notation
         const keepLower = new Set([
@@ -80,18 +89,12 @@
         return lower
             .split(" ")
             .map(word => {
-                // If it's a cricket keyword, keep it lowercase
                 if (keepLower.has(word)) return word;
-    
-                // If it's a number, leave it alone
-                if (!isNaN(word)) return word;
-    
-                // Otherwise capitalise (names etc.)
+                if (!isNaN(word)) return word; // numbers unchanged
                 return word.charAt(0).toUpperCase() + word.slice(1);
             })
             .join(" ");
     }
-
 
     function renderAll() {
         if (!cachedData) return;
