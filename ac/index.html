@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Octopus Agile 24h Clock</title>
+    <style>
+        body { background: #000; color: #fff; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        #clock-container { width: 95vw; height: 95vw; max-width: 500px; position: relative; }
+        svg { width: 100%; height: 100%; }
+        .hour-text { fill: #555; font-size: 8px; font-weight: bold; text-anchor: middle; dominant-baseline: middle; }
+        #now-pointer { fill: #fff; filter: drop-shadow(0 0 5px #fff); }
+        .center-ui { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; pointer-events: none; }
+        #status { font-size: 2.8rem; font-weight: 800; margin: 0; }
+        #price-display { font-size: 1.6rem; margin: 5px 0; }
+        .label { font-size: 0.8rem; letter-spacing: 2px; color: #888; text-transform: uppercase; }
+    </style>
+</head>
+<body>
+
+<div id="clock-container">
+    <svg viewBox="0 0 240 240" id="clock-svg">
+        <circle cx="120" cy="120" r="90" stroke="#111" stroke-width="14" fill="none" />
+        <g id="segments"></g>
+        <g id="labels"></g>
+        <rect id="now-pointer" x="117" y="21" width="6" height="15" rx="2" />
+    </svg>
+    <div class="center-ui">
+        <p class="label">Agile Live</p>
+        <p id="status">---</p>
+        <p id="price-display">--</p>
+    </div>
+</div>
+
+<script>
+    const REGION = 'C'; // London
+    const API_URL = `https://api.octopus.energy/v1/products/AGILE-24-10-01/electricity-tariffs/E-1R-AGILE-24-10-01-${REGION}/standard-unit-rates/`;
+
+    async function init() {
+        // Build labels 0-23
+        const labelsG = document.getElementById('labels');
+        for (let i = 0; i < 24; i++) {
+            const angle = (i / 24) * 360 - 90;
+            const rad = angle * Math.PI / 180;
+            const x = 120 + 108 * Math.cos(rad);
+            const y = 120 + 108 * Math.sin(rad);
+            labelsG.innerHTML += `<text x="${x}" y="${y}" class="hour-text">${i}</text>`;
+        }
+        update();
+        setInterval(update, 60000);
+    }
+
+    async function update() {
+        try {
+            const res = await fetch(API_URL);
+            const data = await res.json();
+            // CRITICAL: Octopus API returns newest first. We must reverse for a clockwise clock.
+            const rates = data.results.reverse(); 
+            
+            const segs = document.getElementById('segments');
+            segs.innerHTML = '';
+            const now = new Date();
+
+            rates.forEach(r => {
+                const start = new Date(r.valid_from);
+                const h = start.getHours() + (start.getMinutes() / 60);
+                
+                // Map to circle (0h = Top)
+                const startA = (h / 24) * 360 - 90;
+                const endA = startA + (0.5 / 24) * 360;
+                
+                let color = '#00ff88'; // Green (<15p)
+                if (r.value_inc_vat > 15) color = '#FFCC00'; // Amber
+                if (r.value_inc_vat > 25) color = '#ff4444'; // Red (Peak)
+                if (r.value_inc_vat < 0)  color = '#00e5ff'; // Blue (Plunge)
+
+                segs.innerHTML += `<path d="${describeArc(120,120,90,startA,endA)}" stroke="${color}" stroke-width="14" fill="none" />`;
+
+                // Update center display if current
+                if (now >= start && now < new Date(r.valid_to)) {
+                    document.getElementById('price-display').innerText = `${r.value_inc_vat.toFixed(1)}p | kWh`;
+                    document.getElementById('status').innerText = r.value_inc_vat > 25 ? "High" : (r.value_inc_vat > 15 ? "Mid" : "Low");
+                    document.getElementById('status').style.color = color;
+                }
+            });
+
+            const rotation = ((now.getHours() * 60 + now.getMinutes()) / 1440) * 360;
+            document.getElementById('now-pointer').setAttribute("transform", `rotate(${rotation} 120 120)`);
+        } catch (e) { console.error(e); }
+    }
+
+    function describeArc(x, y, r, startA, endA) {
+        const s = { x: x + r * Math.cos(endA * Math.PI / 180), y: y + r * Math.sin(endA * Math.PI / 180) };
+        const e = { x: x + r * Math.cos(startA * Math.PI / 180), y: y + r * Math.sin(startA * Math.PI / 180) };
+        return `M ${s.x} ${s.y} A ${r} ${r} 0 0 0 ${e.x} ${e.y}`;
+    }
+
+    init();
+</script>
+</body>
+</html>
