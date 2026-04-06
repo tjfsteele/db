@@ -3,48 +3,63 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Octopus Agile 24h Clock</title>
+    <title>Octopus Agile Slim Dial</title>
     <style>
-        body { background: #000; color: #fff; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        body { background: #000; color: #fff; font-family: -apple-system, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
         #clock-container { width: 95vw; height: 95vw; max-width: 500px; position: relative; }
         svg { width: 100%; height: 100%; }
-        .hour-text { fill: #555; font-size: 8px; font-weight: bold; text-anchor: middle; dominant-baseline: middle; }
-        #now-pointer { fill: #fff; filter: drop-shadow(0 0 5px #fff); }
+        
+        /* Hour Labels */
+        .hour-text { fill: #444; font-size: 7px; font-weight: bold; text-anchor: middle; dominant-baseline: middle; }
+        
+        /* The Pointer - Slimmed down to match */
+        #now-pointer { fill: #fff; filter: drop-shadow(0 0 4px rgba(255,255,255,0.8)); }
+
+        /* Center Display */
         .center-ui { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; pointer-events: none; }
-        #status { font-size: 2.8rem; font-weight: 800; margin: 0; }
-        #price-display { font-size: 1.6rem; margin: 5px 0; }
-        .label { font-size: 0.8rem; letter-spacing: 2px; color: #888; text-transform: uppercase; }
+        #status { font-size: 2.8rem; font-weight: 800; margin: 0; line-height: 1; }
+        #price-display { font-size: 1.5rem; margin: 8px 0; font-weight: 300; }
+        .label { font-size: 0.7rem; letter-spacing: 4px; color: #666; text-transform: uppercase; margin-bottom: 4px; }
     </style>
 </head>
 <body>
 
 <div id="clock-container">
     <svg viewBox="0 0 240 240" id="clock-svg">
-        <circle cx="120" cy="120" r="90" stroke="#111" stroke-width="14" fill="none" />
+        <circle cx="120" cy="120" r="90" stroke="#111" stroke-width="6" fill="none" />
+        
         <g id="segments"></g>
+        
         <g id="labels"></g>
-        <rect id="now-pointer" x="117" y="21" width="6" height="15" rx="2" />
+
+        <rect id="now-pointer" x="118.5" y="24" width="3" height="12" rx="1.5" />
     </svg>
+
     <div class="center-ui">
         <p class="label">Agile Live</p>
         <p id="status">---</p>
         <p id="price-display">--</p>
+        <div style="color:#FFCC00; font-size: 1.2rem; margin-top: 10px;">⚡</div>
     </div>
 </div>
 
 <script>
-    const REGION = 'C'; // London
+    const REGION = 'C'; 
     const API_URL = `https://api.octopus.energy/v1/products/AGILE-24-10-01/electricity-tariffs/E-1R-AGILE-24-10-01-${REGION}/standard-unit-rates/`;
 
     async function init() {
-        // Build labels 0-23
         const labelsG = document.getElementById('labels');
         for (let i = 0; i < 24; i++) {
+            // Position numbers slightly further out (112 instead of 108) to clear the thin ring
             const angle = (i / 24) * 360 - 90;
             const rad = angle * Math.PI / 180;
-            const x = 120 + 108 * Math.cos(rad);
-            const y = 120 + 108 * Math.sin(rad);
-            labelsG.innerHTML += `<text x="${x}" y="${y}" class="hour-text">${i}</text>`;
+            const x = 120 + 112 * Math.cos(rad);
+            const y = 120 + 112 * Math.sin(rad);
+            const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            text.setAttribute("x", x); text.setAttribute("y", y);
+            text.setAttribute("class", "hour-text");
+            text.textContent = i;
+            labelsG.appendChild(text);
         }
         update();
         setInterval(update, 60000);
@@ -54,7 +69,6 @@
         try {
             const res = await fetch(API_URL);
             const data = await res.json();
-            // CRITICAL: Octopus API returns newest first. We must reverse for a clockwise clock.
             const rates = data.results.reverse(); 
             
             const segs = document.getElementById('segments');
@@ -64,38 +78,9 @@
             rates.forEach(r => {
                 const start = new Date(r.valid_from);
                 const h = start.getHours() + (start.getMinutes() / 60);
-                
-                // Map to circle (0h = Top)
                 const startA = (h / 24) * 360 - 90;
-                const endA = startA + (0.5 / 24) * 360;
+                const endA = startA + (14.9/1440) * 360; // 30 mins approx
                 
-                let color = '#00ff88'; // Green (<15p)
-                if (r.value_inc_vat > 15) color = '#FFCC00'; // Amber
-                if (r.value_inc_vat > 25) color = '#ff4444'; // Red (Peak)
-                if (r.value_inc_vat < 0)  color = '#00e5ff'; // Blue (Plunge)
-
-                segs.innerHTML += `<path d="${describeArc(120,120,90,startA,endA)}" stroke="${color}" stroke-width="14" fill="none" />`;
-
-                // Update center display if current
-                if (now >= start && now < new Date(r.valid_to)) {
-                    document.getElementById('price-display').innerText = `${r.value_inc_vat.toFixed(1)}p | kWh`;
-                    document.getElementById('status').innerText = r.value_inc_vat > 25 ? "High" : (r.value_inc_vat > 15 ? "Mid" : "Low");
-                    document.getElementById('status').style.color = color;
-                }
-            });
-
-            const rotation = ((now.getHours() * 60 + now.getMinutes()) / 1440) * 360;
-            document.getElementById('now-pointer').setAttribute("transform", `rotate(${rotation} 120 120)`);
-        } catch (e) { console.error(e); }
-    }
-
-    function describeArc(x, y, r, startA, endA) {
-        const s = { x: x + r * Math.cos(endA * Math.PI / 180), y: y + r * Math.sin(endA * Math.PI / 180) };
-        const e = { x: x + r * Math.cos(startA * Math.PI / 180), y: y + r * Math.sin(startA * Math.PI / 180) };
-        return `M ${s.x} ${s.y} A ${r} ${r} 0 0 0 ${e.x} ${e.y}`;
-    }
-
-    init();
-</script>
-</body>
-</html>
+                let color = '#00ff88'; // Low
+                const p = r.value_inc_vat;
+                if (p > 15) color = '#FFCC00'; //
