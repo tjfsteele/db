@@ -3,36 +3,36 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Octopus Agile Ultra-Thin Dial</title>
+    <title>Octopus Agile</title>
     <style>
-        body { background: #000; color: #fff; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; overflow: hidden; }
+        body { background: #000; color: #fff; font-family: -apple-system, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; overflow: hidden; }
         #clock-container { width: 95vw; height: 95vw; max-width: 500px; position: relative; }
         svg { width: 100%; height: 100%; }
         
-        /* Ultra-Thin Hour Labels */
-        .hour-text { fill: #333; font-size: 6px; font-weight: 500; text-anchor: middle; dominant-baseline: middle; }
+        /* Larger, Brighter Hour Labels */
+        .hour-text { fill: #666; font-size: 11px; font-weight: 700; text-anchor: middle; dominant-baseline: middle; }
         
         /* Needle Pointer */
         #now-pointer { fill: #fff; filter: drop-shadow(0 0 3px #fff); }
 
-        /* Minimal Center Display */
+        /* Center Display */
         .center-ui { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; pointer-events: none; }
-        #status { font-size: 2.5rem; font-weight: 700; margin: 0; line-height: 1; letter-spacing: -1px; }
-        #price-display { font-size: 1.4rem; margin: 8px 0; font-weight: 200; color: #eee; }
-        .label { font-size: 0.65rem; letter-spacing: 5px; color: #555; text-transform: uppercase; margin-bottom: 5px; }
+        #status { font-size: 2.8rem; font-weight: 800; margin: 0; line-height: 1; letter-spacing: -1px; }
+        #price-display { font-size: 1.6rem; margin: 8px 0; font-weight: 300; }
+        .label { font-size: 0.7rem; letter-spacing: 4px; color: #555; text-transform: uppercase; margin-bottom: 5px; }
     </style>
 </head>
 <body>
 
 <div id="clock-container">
     <svg viewBox="0 0 240 240" id="clock-svg">
-        <circle cx="120" cy="120" r="90" stroke="#111" stroke-width="1" fill="none" />
+        <circle cx="120" cy="120" r="85" stroke="#111" stroke-width="1" fill="none" />
         
         <g id="segments"></g>
         
         <g id="labels"></g>
 
-        <rect id="now-pointer" x="119.2" y="26" width="1.6" height="10" rx="0.8" />
+        <rect id="now-pointer" x="119.2" y="31" width="1.6" height="10" rx="0.8" />
     </svg>
 
     <div class="center-ui">
@@ -51,8 +51,9 @@
         for (let i = 0; i < 24; i++) {
             const angle = (i / 24) * 360 - 90;
             const rad = angle * Math.PI / 180;
-            const x = 120 + 105 * Math.cos(rad);
-            const y = 120 + 105 * Math.sin(rad);
+            // Radius 108 moves them further out to accommodate the larger size
+            const x = 120 + 108 * Math.cos(rad);
+            const y = 120 + 108 * Math.sin(rad);
             const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
             text.setAttribute("x", x); text.setAttribute("y", y);
             text.setAttribute("class", "hour-text");
@@ -85,9 +86,10 @@
                 if (p < 0)  color = '#00e5ff'; 
 
                 const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-                path.setAttribute("d", describeArc(120, 120, 90, startA, endA));
+                // Using radius 85 to keep the thin ring just inside the numbers
+                path.setAttribute("d", describeArc(120, 120, 85, startA, endA));
                 path.setAttribute("stroke", color);
-                path.setAttribute("stroke-width", "3"); // ULTRA THIN
+                path.setAttribute("stroke-width", "3");
                 path.setAttribute("fill", "none");
                 path.setAttribute("stroke-linecap", "butt");
                 segs.appendChild(path);
