@@ -3,23 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Octopus Agile</title>
+    <title>Agile Dial - Multi-Region</title>
     <style>
         body { background: #000; color: #fff; font-family: -apple-system, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; overflow: hidden; }
         #clock-container { width: 95vw; height: 95vw; max-width: 500px; position: relative; }
         svg { width: 100%; height: 100%; }
-        
-        /* Larger, Brighter Hour Labels */
         .hour-text { fill: #666; font-size: 11px; font-weight: 700; text-anchor: middle; dominant-baseline: middle; }
-        
-        /* Needle Pointer */
         #now-pointer { fill: #fff; filter: drop-shadow(0 0 3px #fff); }
-
-        /* Center Display */
         .center-ui { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; pointer-events: none; }
         #status { font-size: 2.8rem; font-weight: 800; margin: 0; line-height: 1; letter-spacing: -1px; }
         #price-display { font-size: 1.6rem; margin: 8px 0; font-weight: 300; }
         .label { font-size: 0.7rem; letter-spacing: 4px; color: #555; text-transform: uppercase; margin-bottom: 5px; }
+        #region-indicator { position: absolute; bottom: 10%; color: #333; font-size: 0.8rem; letter-spacing: 2px; }
     </style>
 </head>
 <body>
@@ -27,23 +22,26 @@
 <div id="clock-container">
     <svg viewBox="0 0 240 240" id="clock-svg">
         <circle cx="120" cy="120" r="85" stroke="#111" stroke-width="1" fill="none" />
-        
         <g id="segments"></g>
-        
         <g id="labels"></g>
-
         <rect id="now-pointer" x="119.2" y="31" width="1.6" height="10" rx="0.8" />
     </svg>
-
     <div class="center-ui">
         <p class="label">Agile Live</p>
         <p id="status">---</p>
         <p id="price-display">--</p>
     </div>
+    <div id="region-indicator">REGION: C</div>
 </div>
 
 <script>
-    const REGION = 'A'; 
+    // 1. THIS IS THE MAGIC PART: 
+    // It looks at the URL for "?region=X". If not found, defaults to 'C' (London)
+    const urlParams = new URLSearchParams(window.location.search);
+    const REGION = urlParams.get('region')?.toUpperCase() || 'C'; 
+    
+    document.getElementById('region-indicator').innerText = `REGION: ${REGION}`;
+
     const API_URL = `https://api.octopus.energy/v1/products/AGILE-24-10-01/electricity-tariffs/E-1R-AGILE-24-10-01-${REGION}/standard-unit-rates/`;
 
     async function init() {
@@ -51,13 +49,11 @@
         for (let i = 0; i < 24; i++) {
             const angle = (i / 24) * 360 - 90;
             const rad = angle * Math.PI / 180;
-            // Radius 108 moves them further out to accommodate the larger size
             const x = 120 + 108 * Math.cos(rad);
             const y = 120 + 108 * Math.sin(rad);
             const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
             text.setAttribute("x", x); text.setAttribute("y", y);
-            text.setAttribute("class", "hour-text");
-            text.textContent = i;
+            text.setAttribute("class", "hour-text"); text.textContent = i;
             labelsG.appendChild(text);
         }
         update();
@@ -86,7 +82,6 @@
                 if (p < 0)  color = '#00e5ff'; 
 
                 const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-                // Using radius 85 to keep the thin ring just inside the numbers
                 path.setAttribute("d", describeArc(120, 120, 85, startA, endA));
                 path.setAttribute("stroke", color);
                 path.setAttribute("stroke-width", "3");
@@ -103,7 +98,10 @@
 
             const rotation = ((now.getHours() * 60 + now.getMinutes()) / 1440) * 360;
             document.getElementById('now-pointer').setAttribute("transform", `rotate(${rotation} 120 120)`);
-        } catch (e) { console.error(e); }
+        } catch (e) { 
+            document.getElementById('status').innerText = "ERROR";
+            document.getElementById('price-display').innerText = "Check Region Letter";
+        }
     }
 
     function describeArc(x, y, r, startA, endA) {
