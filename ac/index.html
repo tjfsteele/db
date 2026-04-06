@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Octopus Agile Clock</title>
+    <title>Octopus Agile vs Tracker Clock</title>
     <style>
         body { background: #000; color: #fff; font-family: -apple-system, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; overflow: hidden; }
         #clock-container { width: 95vw; height: 95vw; max-width: 500px; position: relative; }
@@ -14,7 +14,8 @@
         #status { font-size: 2.8rem; font-weight: 800; margin: 0; line-height: 1; letter-spacing: -1px; }
         #price-display { font-size: 1.6rem; margin: 8px 0; font-weight: 300; }
         .label { font-size: 0.7rem; letter-spacing: 4px; color: #555; text-transform: uppercase; margin-bottom: 5px; }
-        #region-indicator { font-size: 0.6rem; color: #333; margin-top: 5px; }
+        #region-indicator { font-size: 0.6rem; color: #444; margin-top: 5px; }
+        #tracker-ref { font-size: 0.8rem; color: #888; margin-top: 2px; }
     </style>
 </head>
 <body>
@@ -28,29 +29,30 @@
     </svg>
 
     <div class="center-ui">
-        <p class="label">Agile Live</p>
+        <p class="label">Agile vs Tracker</p>
         <p id="status">---</p>
         <p id="price-display">--</p>
+        <div id="tracker-ref">Tracker: --p</div>
         <p id="region-indicator"></p>
     </div>
 </div>
 
 <script>
-    // Get region from URL (?region=L) or default to 'A'
     const urlParams = new URLSearchParams(window.location.search);
     const REGION = (urlParams.get('region') || 'A').toUpperCase();
-    const API_URL = `https://api.octopus.energy/v1/products/AGILE-24-10-01/electricity-tariffs/E-1R-AGILE-24-10-01-${REGION}/standard-unit-rates/`;
+    
+    // API Endpoints
+    const AGILE_API = `https://api.octopus.energy/v1/products/AGILE-24-10-01/electricity-tariffs/E-1R-AGILE-24-10-01-${REGION}/standard-unit-rates/`;
+    const TRACKER_API = `https://api.octopus.energy/v1/products/SILVER-24-04-03/electricity-tariffs/E-1R-SILVER-24-04-03-${REGION}/standard-unit-rates/`;
     
     let lastFetchDate = null;
-    let cachedRates = [];
+    let cachedAgile = [];
+    let trackerPrice = null;
 
     async function init() {
         document.getElementById('region-indicator').innerText = `Region: ${REGION}`;
         drawDial();
         await fetchData(); 
-        updateClockUI();   
-        
-        // Check every minute for needle movement or 4pm data release
         setInterval(checkUpdates, 60000);
     }
 
@@ -71,40 +73,49 @@
 
     async function fetchData() {
         try {
-            const res = await fetch(API_URL);
-            const data = await res.json();
-            // We store the data and mark today as "fetched"
-            cachedRates = data.results.reverse();
+            // Fetch Tracker Price
+            const tRes = await fetch(TRACKER_API);
+            const tData = await tRes.json();
+            // Tracker is daily, so we just take the first result for "today"
+            trackerPrice = tData.results[0].value_inc_vat;
+            document.getElementById('tracker-ref').innerText = `Tracker: ${trackerPrice.toFixed(1)}p`;
+
+            // Fetch Agile Rates
+            const aRes = await fetch(AGILE_API);
+            const aData = await aRes.json();
+            cachedAgile = aData.results.reverse();
+            
             lastFetchDate = new Date().toLocaleDateString();
             
             renderSegments();
             updateClockUI();
-            console.log(`Data updated for Region ${REGION}`);
         } catch (e) {
             console.error("API Fetch failed", e);
         }
+    }
+
+    function getPriceColor(price) {
+        if (price < 0) return '#00e5ff'; // Blue for negative (Free money!)
+        if (trackerPrice === null) return '#666';
+        return price <= trackerPrice ? '#00ff88' : '#ff4444'; // Green if <= Tracker, else Red
     }
 
     function renderSegments() {
         const segs = document.getElementById('segments');
         segs.innerHTML = '';
         
-        cachedRates.forEach(r => {
+        cachedAgile.forEach(r => {
             const start = new Date(r.valid_from);
             const h = start.getHours() + (start.getMinutes() / 60);
             const startA = (h / 24) * 360 - 90;
             const endA = startA + (0.5 / 24) * 360; 
             
-            let color = '#00ff88';
-            const p = r.value_inc_vat;
-            if (p > 15) color = '#FFCC00'; 
-            if (p > 25) color = '#ff4444'; 
-            if (p < 0)  color = '#00e5ff'; 
+            const color = getPriceColor(r.value_inc_vat);
 
             const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
             path.setAttribute("d", describeArc(120, 120, 85, startA, endA));
             path.setAttribute("stroke", color);
-            path.setAttribute("stroke-width", "3");
+            path.setAttribute("stroke-width", "4"); // Slightly thicker for visibility
             path.setAttribute("fill", "none");
             segs.appendChild(path);
         });
@@ -114,22 +125,17 @@
         const now = new Date();
         const mins = now.getMinutes();
         
-        // 1. Move Needle: Only snaps to 00 or 30
         const snappedMins = mins < 30 ? 0 : 30;
         const rotation = (((now.getHours() * 60) + snappedMins) / 1440) * 360;
         document.getElementById('now-pointer').setAttribute("transform", `rotate(${rotation} 120 120)`);
 
-        // 2. Update Price Display
-        const currentRate = cachedRates.find(r => now >= new Date(r.valid_from) && now < new Date(r.valid_to));
+        const currentRate = cachedAgile.find(r => now >= new Date(r.valid_from) && now < new Date(r.valid_to));
         if (currentRate) {
             const p = currentRate.value_inc_vat;
-            let color = '#00ff88';
-            if (p > 15) color = '#FFCC00'; 
-            if (p > 25) color = '#ff4444'; 
-            if (p < 0)  color = '#00e5ff'; 
+            const color = getPriceColor(p);
 
             document.getElementById('price-display').innerHTML = `${p.toFixed(1)}p <span style="opacity:0.2">|</span> kWh`;
-            document.getElementById('status').innerText = p > 25 ? "High" : (p > 15 ? "Mid" : "Low");
+            document.getElementById('status').innerText = p <= trackerPrice ? "CHEAPER" : "DEARER";
             document.getElementById('status').style.color = color;
         }
     }
@@ -137,14 +143,8 @@
     function checkUpdates() {
         const now = new Date();
         const mins = now.getMinutes();
-
-        // Update UI/Needle at :00 and :30
-        if (mins === 0 || mins === 30) {
-            updateClockUI();
-        }
-
-        // After 4pm (16:00), if we haven't refreshed data for "today's session", try again
-        // This ensures tomorrow's prices are pulled in once they are released.
+        if (mins === 0 || mins === 30) updateClockUI();
+        
         const todayStr = now.toLocaleDateString();
         if (now.getHours() >= 16 && lastFetchDate !== todayStr) {
             fetchData();
