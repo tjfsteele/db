@@ -2,11 +2,12 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Chromecast Scoreboard</title>
+    <title>Chromecast Scoreboard (Legacy Compatible)</title>
     <style>
         body { background-color: #000; color: #fff; font-family: Arial, sans-serif; margin: 0; padding: 20px; }
         .scoreboard-container { width: 920px; margin: 0 auto; border: 1px solid #333; padding: 25px; background: #000; }
         
+        /* Layout Columns using Floats for Legacy Support */
         .left-col { float: left; width: 550px; }
         .right-col { float: right; width: 330px; }
         .clearfix { clear: both; }
@@ -20,9 +21,22 @@
 
         .section-header { color: #888; border-bottom: 1px solid #444; margin: 20px 0 10px 0; font-size: 16px; text-transform: uppercase; letter-spacing: 1px; }
         
-        .player-row { border-bottom: 1px solid #1a1a1a; padding: 6px 0; font-size: 20px; min-height: 24px; }
-        .player-name { float: left; }
-        .player-stat { float: right; color: #bbb; text-align: right; max-width: 250px; }
+        /* Table-based rows to prevent dismissal string wrapping */
+        .player-table { width: 100%; border-collapse: collapse; margin-bottom: 2px; }
+        .player-table td { 
+            border-bottom: 1px solid #1a1a1a; 
+            padding: 8px 0; 
+            font-size: 20px; 
+            vertical-align: baseline; 
+        }
+        .player-name-cell { text-align: left; }
+        .player-stat-cell { 
+            text-align: right; 
+            color: #bbb; 
+            white-space: nowrap; /* CRITICAL: Prevents the dismissal string from cutting into two pieces */
+            width: 1%; /* Forces cell to shrink to content, giving name cell more room */
+            padding-left: 15px;
+        }
         
         .info-item { border-bottom: 1px solid #222; padding: 10px 0; font-size: 20px; }
         .info-label { color: #aaa; }
@@ -66,13 +80,9 @@
 <script>
     var cachedData = null;
 
-    // Legacy-safe capitalization function
     function formatString(str) {
         if (!str || str.trim() === "" || str === "0") return "";
-    
         let lower = str.toLowerCase().trim();
-    
-        // Normalise full cricket terms to abbreviations
         lower = lower
             .replace(/\bcaught\b/g, "c")
             .replace(/\bbowled\b/g, "b")
@@ -80,33 +90,19 @@
             .replace(/\blbw\b/g, "lbw")
             .replace(/\brun out\b/g, "run out")
             .replace(/\bnot out\b/g, "not out");
-    
-        // Fix missing fielder: "c b bowler" → "c ? b bowler"
         lower = lower.replace(/\bc b ([a-z]+)/g, "c ? b $1");
-    
-        // Proper caught & bowled: "c smith b smith" → "c&b Smith"
         lower = lower.replace(/\bc ([a-z]+) b \1\b/g, "c&b $1");
-    
-        // Words that must stay lowercase
-        const keepLower = new Set([
-            "c", "b", "lbw", "st", "run", "out", "not", "c&b", "?"
-        ]);
-    
-        return lower
-            .split(" ")
-            .map(word => {
-                if (keepLower.has(word)) return word;
-                if (!isNaN(word)) return word; // numbers unchanged
-                return word.charAt(0).toUpperCase() + word.slice(1);
-            })
-            .join(" ");
+        const keepLower = new Set(["c", "b", "lbw", "st", "run", "out", "not", "c&b", "?"]);
+        return lower.split(" ").map(word => {
+            if (keepLower.has(word)) return word;
+            if (!isNaN(word)) return word;
+            return word.charAt(0).toUpperCase() + word.slice(1);
+        }).join(" ");
     }
 
     function renderAll() {
         if (!cachedData) return;
         var data = cachedData;
-        
-        // Auto-detect if 2nd innings has started (field 282 or 208)
         var secondInnsActive = (data["208"] !== "0" && data["208"] !== "");
         var view1st = !secondInnsActive;
 
@@ -114,9 +110,8 @@
         document.getElementById('view-label').innerHTML = view1st ? "1st Innings" : "2nd Innings (Live)";
         document.getElementById('match-info-section').style.display = view1st ? "none" : "block";
 
-        // Score logic with fixed extraction for 1st innings
         if (view1st) {
-            var summary = data["281"] || ""; // e.g. "139-7 (40)"
+            var summary = data["281"] || ""; 
             var scorePart = summary.split(' ')[0]; 
             document.getElementById('main-score').innerHTML = scorePart || data["224"];
             var ovMatch = summary.match(/\(([^)]+)\)/);
@@ -126,43 +121,44 @@
             document.getElementById('main-overs').innerHTML = "(" + data["210"] + ")";
         }
 
-        // Batting - 1st Inns uses 269+, 2nd Inns uses 5+
+        // Batting Rows
         var batRows = document.getElementById('batting-rows');
         batRows.innerHTML = "";
         var bStart = view1st ? 269 : 5;
         var sStart = view1st ? 378 : 389;
         for (var i = 0; i < 11; i++) {
             var name = data[bStart + i];
-            if (name && name !== "   " && name !== "0") {
+            if (name && name !== "    " && name !== "0") {
                 var isStriker = !view1st && data[82 + i] === "*";
-                var div = document.createElement('div');
-                div.className = "player-row clearfix";
                 var displayName = formatString(name) + (isStriker ? " *" : "");
-                div.innerHTML = '<span class="player-name' + (isStriker ? ' striker-active' : '') + '">' + displayName + '</span>' +
-                                '<span class="player-stat">' + formatString(data[sStart + i]) + '</span>';
-                batRows.appendChild(div);
+                var dismissal = formatString(data[sStart + i]);
+                
+                batRows.innerHTML += 
+                    '<table class="player-table"><tr>' +
+                    '<td class="player-name-cell' + (isStriker ? ' striker-active' : '') + '">' + displayName + '</td>' +
+                    '<td class="player-stat-cell">' + dismissal + '</td>' +
+                    '</tr></table>';
             }
         }
 
-        // Bowling - 1st Inns uses 181+, 2nd Inns uses 104+
+        // Bowling Rows
         var bowlRows = document.getElementById('bowling-rows');
         bowlRows.innerHTML = "";
         var bowlStart = view1st ? 181 : 104;
         document.getElementById('bowling-header').innerHTML = view1st ? "1st Inns Bowling" : "2nd Inns Bowling";
-        
         for (var j = 0; j < 11; j++) {
             var bName = data[bowlStart + j];
             var bOvers = data[115 + j];
-            if (bName && bName !== "   " && parseFloat(bOvers) > 0) {
-                var bDiv = document.createElement('div');
-                bDiv.className = "player-row clearfix";
-                bDiv.innerHTML = '<span class="player-name">' + formatString(bName) + '</span>' +
-                                 '<span class="player-stat bowler-stats">' + bOvers + '-' + data[126+j] + '-' + data[137+j] + '-' + data[170+j] + '</span>';
-                bowlRows.appendChild(bDiv);
+            if (bName && bName !== "    " && parseFloat(bOvers) > 0) {
+                var stats = bOvers + '-' + data[126+j] + '-' + data[137+j] + '-' + data[170+j];
+                bowlRows.innerHTML += 
+                    '<table class="player-table"><tr>' +
+                    '<td class="player-name-cell">' + formatString(bName) + '</td>' +
+                    '<td class="player-stat-cell bowler-stats">' + stats + '</td>' +
+                    '</tr></table>';
             }
         }
 
-        // Match Info
         document.getElementById('f226').innerHTML = data["226"] || "-";
         document.getElementById('f326').innerHTML = data["326"] || "-";
         document.getElementById('f325').innerHTML = data["325"] || "-";
