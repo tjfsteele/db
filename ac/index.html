@@ -83,4 +83,36 @@
                 
                 let color = '#00ff88'; // Low
                 const p = r.value_inc_vat;
-                if (p > 15) color = '#FFCC00'; //
+                if (p > 15) color = '#FFCC00'; // Mid
+                if (p > 25) color = '#ff4444'; // High
+                if (p < 0)  color = '#00e5ff'; // Plunge
+
+                const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                path.setAttribute("d", describeArc(120, 120, 90, startA, endA));
+                path.setAttribute("stroke", color);
+                path.setAttribute("stroke-width", "8"); // THINNER RING HERE
+                path.setAttribute("fill", "none");
+                segs.appendChild(path);
+
+                if (now >= start && now < new Date(r.valid_to)) {
+                    document.getElementById('price-display').innerHTML = `${p.toFixed(1)}p <span style="opacity:0.3">|</span> kWh`;
+                    document.getElementById('status').innerText = p > 25 ? "High" : (p > 15 ? "Mid" : "Low");
+                    document.getElementById('status').style.color = color;
+                }
+            });
+
+            const rotation = ((now.getHours() * 60 + now.getMinutes()) / 1440) * 360;
+            document.getElementById('now-pointer').setAttribute("transform", `rotate(${rotation} 120 120)`);
+        } catch (e) { console.error(e); }
+    }
+
+    function describeArc(x, y, r, startA, endA) {
+        const s = { x: x + r * Math.cos(endA * Math.PI / 180), y: y + r * Math.sin(endA * Math.PI / 180) };
+        const e = { x: x + r * Math.cos(startA * Math.PI / 180), y: y + r * Math.sin(startA * Math.PI / 180) };
+        return `M ${s.x} ${s.y} A ${r} ${r} 0 0 0 ${e.x} ${e.y}`;
+    }
+
+    init();
+</script>
+</body>
+</html>
