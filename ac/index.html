@@ -3,18 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Agile Dial - Multi-Region</title>
+    <title>Octopus Agile Clock</title>
     <style>
         body { background: #000; color: #fff; font-family: -apple-system, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; overflow: hidden; }
         #clock-container { width: 95vw; height: 95vw; max-width: 500px; position: relative; }
         svg { width: 100%; height: 100%; }
         .hour-text { fill: #666; font-size: 11px; font-weight: 700; text-anchor: middle; dominant-baseline: middle; }
-        #now-pointer { fill: #fff; filter: drop-shadow(0 0 3px #fff); }
+        #now-pointer { fill: #fff; filter: drop-shadow(0 0 3px #fff); transition: transform 0.8s cubic-bezier(0.4, 0, 0.2, 1); }
         .center-ui { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; pointer-events: none; }
         #status { font-size: 2.8rem; font-weight: 800; margin: 0; line-height: 1; letter-spacing: -1px; }
         #price-display { font-size: 1.6rem; margin: 8px 0; font-weight: 300; }
         .label { font-size: 0.7rem; letter-spacing: 4px; color: #555; text-transform: uppercase; margin-bottom: 5px; }
-        #region-indicator { position: absolute; bottom: 10%; color: #333; font-size: 0.8rem; letter-spacing: 2px; }
+        #region-indicator { font-size: 0.6rem; color: #333; margin-top: 5px; }
     </style>
 </head>
 <body>
@@ -26,25 +26,35 @@
         <g id="labels"></g>
         <rect id="now-pointer" x="119.2" y="31" width="1.6" height="10" rx="0.8" />
     </svg>
+
     <div class="center-ui">
         <p class="label">Agile Live</p>
         <p id="status">---</p>
         <p id="price-display">--</p>
+        <p id="region-indicator"></p>
     </div>
-    <div id="region-indicator">REGION: C</div>
 </div>
 
 <script>
-    // 1. THIS IS THE MAGIC PART: 
-    // It looks at the URL for "?region=X". If not found, defaults to 'C' (London)
+    // Get region from URL (?region=L) or default to 'A'
     const urlParams = new URLSearchParams(window.location.search);
-    const REGION = urlParams.get('region')?.toUpperCase() || 'A'; 
-    
-    document.getElementById('region-indicator').innerText = `REGION: ${REGION}`;
-
+    const REGION = (urlParams.get('region') || 'A').toUpperCase();
     const API_URL = `https://api.octopus.energy/v1/products/AGILE-24-10-01/electricity-tariffs/E-1R-AGILE-24-10-01-${REGION}/standard-unit-rates/`;
+    
+    let lastFetchDate = null;
+    let cachedRates = [];
 
     async function init() {
+        document.getElementById('region-indicator').innerText = `Region: ${REGION}`;
+        drawDial();
+        await fetchData(); 
+        updateClockUI();   
+        
+        // Check every minute for needle movement or 4pm data release
+        setInterval(checkUpdates, 60000);
+    }
+
+    function drawDial() {
         const labelsG = document.getElementById('labels');
         for (let i = 0; i < 24; i++) {
             const angle = (i / 24) * 360 - 90;
@@ -53,54 +63,91 @@
             const y = 120 + 108 * Math.sin(rad);
             const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
             text.setAttribute("x", x); text.setAttribute("y", y);
-            text.setAttribute("class", "hour-text"); text.textContent = i;
+            text.setAttribute("class", "hour-text");
+            text.textContent = i;
             labelsG.appendChild(text);
         }
-        update();
-        setInterval(update, 60000);
     }
 
-    async function update() {
+    async function fetchData() {
         try {
             const res = await fetch(API_URL);
             const data = await res.json();
-            const rates = data.results.reverse(); 
-            const segs = document.getElementById('segments');
-            segs.innerHTML = '';
-            const now = new Date();
+            // We store the data and mark today as "fetched"
+            cachedRates = data.results.reverse();
+            lastFetchDate = new Date().toLocaleDateString();
+            
+            renderSegments();
+            updateClockUI();
+            console.log(`Data updated for Region ${REGION}`);
+        } catch (e) {
+            console.error("API Fetch failed", e);
+        }
+    }
 
-            rates.forEach(r => {
-                const start = new Date(r.valid_from);
-                const h = start.getHours() + (start.getMinutes() / 60);
-                const startA = (h / 24) * 360 - 90;
-                const endA = startA + (0.51 / 24) * 360; 
-                
-                let color = '#00ff88';
-                const p = r.value_inc_vat;
-                if (p > 15) color = '#FFCC00'; 
-                if (p > 25) color = '#ff4444'; 
-                if (p < 0)  color = '#00e5ff'; 
+    function renderSegments() {
+        const segs = document.getElementById('segments');
+        segs.innerHTML = '';
+        
+        cachedRates.forEach(r => {
+            const start = new Date(r.valid_from);
+            const h = start.getHours() + (start.getMinutes() / 60);
+            const startA = (h / 24) * 360 - 90;
+            const endA = startA + (0.5 / 24) * 360; 
+            
+            let color = '#00ff88';
+            const p = r.value_inc_vat;
+            if (p > 15) color = '#FFCC00'; 
+            if (p > 25) color = '#ff4444'; 
+            if (p < 0)  color = '#00e5ff'; 
 
-                const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-                path.setAttribute("d", describeArc(120, 120, 85, startA, endA));
-                path.setAttribute("stroke", color);
-                path.setAttribute("stroke-width", "3");
-                path.setAttribute("fill", "none");
-                path.setAttribute("stroke-linecap", "butt");
-                segs.appendChild(path);
+            const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+            path.setAttribute("d", describeArc(120, 120, 85, startA, endA));
+            path.setAttribute("stroke", color);
+            path.setAttribute("stroke-width", "3");
+            path.setAttribute("fill", "none");
+            segs.appendChild(path);
+        });
+    }
 
-                if (now >= start && now < new Date(r.valid_to)) {
-                    document.getElementById('price-display').innerHTML = `${p.toFixed(1)}p <span style="opacity:0.2">|</span> kWh`;
-                    document.getElementById('status').innerText = p > 25 ? "High" : (p > 15 ? "Mid" : "Low");
-                    document.getElementById('status').style.color = color;
-                }
-            });
+    function updateClockUI() {
+        const now = new Date();
+        const mins = now.getMinutes();
+        
+        // 1. Move Needle: Only snaps to 00 or 30
+        const snappedMins = mins < 30 ? 0 : 30;
+        const rotation = (((now.getHours() * 60) + snappedMins) / 1440) * 360;
+        document.getElementById('now-pointer').setAttribute("transform", `rotate(${rotation} 120 120)`);
 
-            const rotation = ((now.getHours() * 60 + now.getMinutes()) / 1440) * 360;
-            document.getElementById('now-pointer').setAttribute("transform", `rotate(${rotation} 120 120)`);
-        } catch (e) { 
-            document.getElementById('status').innerText = "ERROR";
-            document.getElementById('price-display').innerText = "Check Region Letter";
+        // 2. Update Price Display
+        const currentRate = cachedRates.find(r => now >= new Date(r.valid_from) && now < new Date(r.valid_to));
+        if (currentRate) {
+            const p = currentRate.value_inc_vat;
+            let color = '#00ff88';
+            if (p > 15) color = '#FFCC00'; 
+            if (p > 25) color = '#ff4444'; 
+            if (p < 0)  color = '#00e5ff'; 
+
+            document.getElementById('price-display').innerHTML = `${p.toFixed(1)}p <span style="opacity:0.2">|</span> kWh`;
+            document.getElementById('status').innerText = p > 25 ? "High" : (p > 15 ? "Mid" : "Low");
+            document.getElementById('status').style.color = color;
+        }
+    }
+
+    function checkUpdates() {
+        const now = new Date();
+        const mins = now.getMinutes();
+
+        // Update UI/Needle at :00 and :30
+        if (mins === 0 || mins === 30) {
+            updateClockUI();
+        }
+
+        // After 4pm (16:00), if we haven't refreshed data for "today's session", try again
+        // This ensures tomorrow's prices are pulled in once they are released.
+        const todayStr = now.toLocaleDateString();
+        if (now.getHours() >= 16 && lastFetchDate !== todayStr) {
+            fetchData();
         }
     }
 
