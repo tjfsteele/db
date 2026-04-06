@@ -38,7 +38,7 @@
     // 1. THIS IS THE MAGIC PART: 
     // It looks at the URL for "?region=X". If not found, defaults to 'C' (London)
     const urlParams = new URLSearchParams(window.location.search);
-    const REGION = urlParams.get('region')?.toUpperCase() || 'C'; 
+    const REGION = urlParams.get('region')?.toUpperCase() || 'A'; 
     
     document.getElementById('region-indicator').innerText = `REGION: ${REGION}`;
 
