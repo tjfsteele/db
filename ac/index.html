@@ -1,32 +1,214 @@
-// ... existing code in renderSegments() ...
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Octopus Agile vs Tracker Clock</title>
+    <style>
+        body { background: #000; color: #fff; font-family: -apple-system, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; overflow: hidden; }
+        #clock-container { width: 95vw; height: 95vw; max-width: 500px; position: relative; }
+        svg { width: 100%; height: 100%; background: #000; touch-action: none; }
+        
+        .hour-text { fill: #222; font-size: 10px; font-weight: 800; text-anchor: middle; dominant-baseline: middle; pointer-events: none; }
+        #now-pointer { fill: #fff; filter: drop-shadow(0 0 3px rgba(255,255,255,0.8)); transition: transform 0.8s cubic-bezier(0.4, 0, 0.2, 1); pointer-events: none; }
+        
+        /* Interactive segments */
+        .price-segment { cursor: pointer; pointer-events: all; transition: stroke-width 0.2s; -webkit-tap-highlight-color: transparent; }
+        .price-segment:hover { stroke-width: 10; }
 
-// 1. Change listeners to 'pointerenter' for unified touch/mouse support
-path.addEventListener('pointerenter', (e) => {
-    // Prevent accidental triggers during scrolling
-    if (e.pointerType === 'touch') {
-        clearTimeout(window.touchTimeout);
-    }
+        .center-ui { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; pointer-events: none; width: 60%; }
+        #status { font-size: 3.8rem; font-weight: 900; margin: 0; line-height: 0.9; letter-spacing: -3px; transition: color 0.2s; }
+        #price-display { font-size: 1rem; margin: 8px 0; color: #444; font-weight: 400; text-transform: uppercase; letter-spacing: 2px; }
+        #label-text { font-size: 0.7rem; letter-spacing: 4px; color: #333; text-transform: uppercase; margin-bottom: 8px; transition: color 0.2s; }
+        #tracker-ref { font-size: 0.9rem; color: #555; margin-top: 5px; font-weight: 600; padding-top: 10px; border-top: 1px solid #111; }
+    </style>
+</head>
+<body>
+
+<div id="clock-container">
+    <svg viewBox="0 0 240 240" id="clock-svg">
+        <circle cx="120" cy="120" r="85" stroke="#000" stroke-width="10" fill="none" />
+        <g id="segments"></g>
+        <g id="labels"></g>
+        <rect id="now-pointer" x="118.5" y="24" width="3" height="16" rx="1.5" />
+    </svg>
+
+    <div class="center-ui">
+        <p id="label-text">Agile Pricing</p>
+        <p id="status">--.-p</p>
+        <div id="price-display">per kWh</div>
+        <div id="tracker-ref">Tracker: --p</div>
+    </div>
+</div>
+
+<script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const REGION = (urlParams.get('region') || 'A').toUpperCase();
     
-    const timeStr = start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
-    document.getElementById('label-text').innerText = `@ ${timeStr}`;
-    updateDisplay(r.value_inc_vat, style.color);
+    const AGILE_API = `https://api.octopus.energy/v1/products/AGILE-24-10-01/electricity-tariffs/E-1R-AGILE-24-10-01-${REGION}/standard-unit-rates/`;
+    const TRACKER_API = `https://api.octopus.energy/v1/products/SILVER-26-04-01/electricity-tariffs/E-1R-SILVER-26-04-01-${REGION}/standard-unit-rates/`;
+    
+    let cachedAgile = [];
+    let trackerPrice = null;
+    let lastFetchDate = null;
+    let touchTimeout = null;
 
-    // 2. If it's a touch (tap), set a timer to revert to "Now" after 3 seconds
-    if (e.pointerType === 'touch') {
-        window.touchTimeout = setTimeout(() => {
-            document.getElementById('label-text').innerText = `Agile Pricing`;
-            updateClockUI();
-        }, 3000);
+    async function init() {
+        drawDial();
+        await fetchData(); 
+        setInterval(refreshUI, 30000); 
     }
-});
 
-path.addEventListener('pointerleave', (e) => {
-    // Only revert immediately if it's a mouse. 
-    // Touch stays visible for a moment via the timeout above.
-    if (e.pointerType === 'mouse') {
-        document.getElementById('label-text').innerText = `Agile Pricing`;
+    function drawDial() {
+        const labelsG = document.getElementById('labels');
+        for (let i = 0; i < 24; i++) {
+            const angle = (i / 24) * 360 - 90;
+            const rad = angle * Math.PI / 180;
+            const x = 120 + 106 * Math.cos(rad);
+            const y = 120 + 106 * Math.sin(rad);
+            const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            text.setAttribute("x", x); text.setAttribute("y", y);
+            text.setAttribute("class", "hour-text");
+            text.textContent = i;
+            labelsG.appendChild(text);
+        }
+    }
+
+    async function fetchData() {
+        try {
+            const now = new Date();
+            const todayStr = now.toISOString().split('T')[0];
+            const [tRes, aRes] = await Promise.all([fetch(TRACKER_API), fetch(AGILE_API)]);
+            const tData = await tRes.json();
+            const aData = await aRes.json();
+
+            const todayTracker = tData.results.find(r => r.valid_from.startsWith(todayStr));
+            trackerPrice = todayTracker ? todayTracker.value_inc_vat : tData.results[0].value_inc_vat;
+            document.getElementById('tracker-ref').innerText = `Tracker: ${trackerPrice.toFixed(2)}p`;
+
+            cachedAgile = aData.results.sort((a, b) => new Date(a.valid_from) - new Date(b.valid_from));
+            lastFetchDate = now.toLocaleDateString();
+            
+            renderSegments();
+            updateClockUI();
+        } catch (e) { console.error(e); }
+    }
+
+    function getSegmentStyle(price) {
+        if (price < 0) return { color: '#f0f', opacity: 1.0 };
+        if (trackerPrice === null) return { color: '#000', opacity: 0 };
+        const delta = Math.abs(price - trackerPrice);
+        const opacity = Math.min(1, 0.25 + (delta / 15)); 
+        const color = price <= trackerPrice ? '#00ff88' : '#ff4444';
+        return { color, opacity };
+    }
+
+    function renderSegments() {
+        const segs = document.getElementById('segments');
+        segs.innerHTML = '';
+        
+        const now = new Date();
+        const cutoff = now.getTime();
+        const latestSegment = cachedAgile[cachedAgile.length - 1];
+        const latestTime = latestSegment ? new Date(latestSegment.valid_to).getTime() : 0;
+
+        cachedAgile.forEach(r => {
+            const validFrom = new Date(r.valid_from).getTime();
+            const validTo = new Date(r.valid_to).getTime();
+            
+            if (validTo > cutoff) {
+                const start = new Date(r.valid_from);
+                const h = start.getHours() + (start.getMinutes() / 60);
+                
+                let startA = (h / 24) * 360 - 90;
+                let endA = startA + (0.5 / 24) * 360; 
+
+                if (validTo === latestTime) endA -= 4; 
+
+                const style = getSegmentStyle(r.value_inc_vat);
+                const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                
+                path.setAttribute("d", describeArc(120, 120, 85, startA, endA));
+                path.setAttribute("stroke", style.color);
+                path.setAttribute("stroke-opacity", style.opacity);
+                path.setAttribute("stroke-width", "5");
+                path.setAttribute("fill", "none");
+                path.setAttribute("stroke-linecap", "butt");
+                path.setAttribute("class", "price-segment");
+
+                // Pointer Events (Unified Mouse/Touch)
+                path.addEventListener('pointerenter', (e) => {
+                    if (touchTimeout) clearTimeout(touchTimeout);
+                    
+                    const timeStr = start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+                    const label = document.getElementById('label-text');
+                    label.innerText = `@ ${timeStr}`;
+                    label.style.color = style.color;
+                    updateDisplay(r.value_inc_vat, style.color);
+
+                    // Auto-revert for touch users after 3 seconds
+                    if (e.pointerType === 'touch') {
+                        touchTimeout = setTimeout(resetToLive, 3000);
+                    }
+                });
+
+                path.addEventListener('pointerleave', (e) => {
+                    // Only revert immediately if it's a mouse
+                    if (e.pointerType === 'mouse') {
+                        resetToLive();
+                    }
+                });
+
+                segs.appendChild(path);
+            }
+        });
+    }
+
+    function resetToLive() {
+        const label = document.getElementById('label-text');
+        label.innerText = `Agile Pricing`;
+        label.style.color = '#333';
         updateClockUI();
     }
-});
 
-// ... rest of the code ...
+    function updateDisplay(price, color) {
+        const statusEl = document.getElementById('status');
+        statusEl.innerText = `${price.toFixed(1)}p`;
+        statusEl.style.color = color;
+    }
+
+    function updateClockUI() {
+        const now = new Date();
+        const rotation = (((now.getHours() * 60) + now.getMinutes()) / 1440) * 360;
+        document.getElementById('now-pointer').setAttribute("transform", `rotate(${rotation} 120 120)`);
+
+        const currentRate = cachedAgile.find(r => {
+            const start = new Date(r.valid_from);
+            const end = new Date(r.valid_to);
+            return now >= start && now < end;
+        });
+
+        if (currentRate) {
+            const p = currentRate.value_inc_vat;
+            const style = getSegmentStyle(p);
+            updateDisplay(p, style.color);
+        }
+    }
+
+    function refreshUI() {
+        const now = new Date();
+        renderSegments(); 
+        updateClockUI();
+        if (now.getHours() >= 16 && lastFetchDate !== now.toLocaleDateString()) fetchData();
+    }
+
+    function describeArc(x, y, r, startA, endA) {
+        const s = { x: x + r * Math.cos(endA * Math.PI / 180), y: y + r * Math.sin(endA * Math.PI / 180) };
+        const e = { x: x + r * Math.cos(startA * Math.PI / 180), y: y + r * Math.sin(startA * Math.PI / 180) };
+        return `M ${s.x} ${s.y} A ${r} ${r} 0 0 0 ${e.x} ${e.y}`;
+    }
+
+    init();
+</script>
+</body>
+</html>
