@@ -19,6 +19,18 @@
         #price-display { font-size: 1rem; margin: 8px 0; color: #444; font-weight: 400; text-transform: uppercase; letter-spacing: 2px; }
         #label-text { font-size: 0.7rem; letter-spacing: 4px; color: #333; text-transform: uppercase; margin-bottom: 8px; }
         #tracker-ref { font-size: 0.9rem; color: #555; margin-top: 5px; font-weight: 600; padding-top: 10px; border-top: 1px solid #111; }
+        
+        /* New styling for the region badge */
+        #region-badge { 
+            font-size: 0.8rem; 
+            color: #222; 
+            border: 1px solid #222; 
+            display: inline-block; 
+            padding: 2px 6px; 
+            border-radius: 4px; 
+            margin-top: 10px;
+            font-weight: 800;
+        }
     </style>
 </head>
 <body>
@@ -36,6 +48,7 @@
         <p id="status">--.-p</p>
         <div id="price-display">per kWh</div>
         <div id="tracker-ref">Tracker: --p</div>
+        <div id="region-badge">Region --</div>
     </div>
 </div>
 
@@ -43,6 +56,9 @@
     const urlParams = new URLSearchParams(window.location.search);
     const REGION = (urlParams.get('region') || 'A').toUpperCase();
     
+    // Set the region text immediately
+    document.getElementById('region-badge').innerText = `Region ${REGION}`;
+
     const AGILE_API = `https://api.octopus.energy/v1/products/AGILE-24-10-01/electricity-tariffs/E-1R-AGILE-24-10-01-${REGION}/standard-unit-rates/`;
     const TRACKER_API = `https://api.octopus.energy/v1/products/SILVER-26-04-01/electricity-tariffs/E-1R-SILVER-26-04-01-${REGION}/standard-unit-rates/`;
     
@@ -52,7 +68,6 @@
     let isInteracting = false;
     let revertTimeout = null;
 
-    // Helper to parse dates reliably across browsers
     const parseDate = (dStr) => new Date(Date.parse(dStr));
 
     async function init() {
@@ -140,7 +155,6 @@
 
         const handlePointer = (e) => {
             const rect = svg.getBoundingClientRect();
-            // Unified touch/mouse coordinates
             const clientX = (e.touches && e.touches[0]) ? e.touches[0].clientX : e.clientX;
             const clientY = (e.touches && e.touches[0]) ? e.touches[0].clientY : e.clientY;
             
@@ -153,7 +167,6 @@
 
             const targetHour = (angle / 360) * 24;
             
-            // Find rate using strict half-hour slots
             const rate = cachedAgile.find(r => {
                 const d = parseDate(r.valid_from);
                 const h = d.getHours() + (d.getMinutes() / 60);
