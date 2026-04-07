@@ -3,23 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Octopus Agile vs Tracker Clock</title>
+    <title>Octopus Agile Clock - Scrubbing</title>
     <style>
         body { background: #000; color: #fff; font-family: -apple-system, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; overflow: hidden; }
-        #clock-container { width: 95vw; height: 95vw; max-width: 500px; position: relative; }
-        svg { width: 100%; height: 100%; background: #000; touch-action: none; }
+        #clock-container { width: 95vw; height: 95vw; max-width: 500px; position: relative; touch-action: none; }
+        svg { width: 100%; height: 100%; background: #000; }
         
         .hour-text { fill: #222; font-size: 10px; font-weight: 800; text-anchor: middle; dominant-baseline: middle; pointer-events: none; }
         #now-pointer { fill: #fff; filter: drop-shadow(0 0 3px rgba(255,255,255,0.8)); transition: transform 0.8s cubic-bezier(0.4, 0, 0.2, 1); pointer-events: none; }
         
-        /* Interactive segments */
-        .price-segment { cursor: pointer; pointer-events: all; transition: stroke-width 0.2s; -webkit-tap-highlight-color: transparent; }
-        .price-segment:hover { stroke-width: 10; }
+        .price-segment { pointer-events: none; stroke-width: 5; transition: stroke-width 0.2s; }
 
         .center-ui { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; pointer-events: none; width: 60%; }
-        #status { font-size: 3.8rem; font-weight: 900; margin: 0; line-height: 0.9; letter-spacing: -3px; transition: color 0.2s; }
+        #status { font-size: 3.8rem; font-weight: 900; margin: 0; line-height: 0.9; letter-spacing: -3px; }
         #price-display { font-size: 1rem; margin: 8px 0; color: #444; font-weight: 400; text-transform: uppercase; letter-spacing: 2px; }
-        #label-text { font-size: 0.7rem; letter-spacing: 4px; color: #333; text-transform: uppercase; margin-bottom: 8px; transition: color 0.2s; }
+        #label-text { font-size: 0.7rem; letter-spacing: 4px; color: #333; text-transform: uppercase; margin-bottom: 8px; }
         #tracker-ref { font-size: 0.9rem; color: #555; margin-top: 5px; font-weight: 600; padding-top: 10px; border-top: 1px solid #111; }
     </style>
 </head>
@@ -27,7 +25,7 @@
 
 <div id="clock-container">
     <svg viewBox="0 0 240 240" id="clock-svg">
-        <circle cx="120" cy="120" r="85" stroke="#000" stroke-width="10" fill="none" />
+        <circle cx="120" cy="120" r="85" stroke="#111" stroke-width="12" fill="none" />
         <g id="segments"></g>
         <g id="labels"></g>
         <rect id="now-pointer" x="118.5" y="24" width="3" height="16" rx="1.5" />
@@ -51,11 +49,13 @@
     let cachedAgile = [];
     let trackerPrice = null;
     let lastFetchDate = null;
-    let touchTimeout = null;
+    let isScrubbing = false;
+    let revertTimeout = null;
 
     async function init() {
         drawDial();
         await fetchData(); 
+        setupInteractions();
         setInterval(refreshUI, 30000); 
     }
 
@@ -106,69 +106,88 @@
     function renderSegments() {
         const segs = document.getElementById('segments');
         segs.innerHTML = '';
-        
         const now = new Date();
         const cutoff = now.getTime();
-        const latestSegment = cachedAgile[cachedAgile.length - 1];
-        const latestTime = latestSegment ? new Date(latestSegment.valid_to).getTime() : 0;
+        const latestTime = cachedAgile.length ? new Date(cachedAgile[cachedAgile.length-1].valid_to).getTime() : 0;
 
         cachedAgile.forEach(r => {
-            const validFrom = new Date(r.valid_from).getTime();
             const validTo = new Date(r.valid_to).getTime();
-            
             if (validTo > cutoff) {
                 const start = new Date(r.valid_from);
                 const h = start.getHours() + (start.getMinutes() / 60);
-                
                 let startA = (h / 24) * 360 - 90;
                 let endA = startA + (0.5 / 24) * 360; 
-
-                if (validTo === latestTime) endA -= 4; 
+                if (validTo === latestTime) endA -= 3; 
 
                 const style = getSegmentStyle(r.value_inc_vat);
                 const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-                
                 path.setAttribute("d", describeArc(120, 120, 85, startA, endA));
                 path.setAttribute("stroke", style.color);
                 path.setAttribute("stroke-opacity", style.opacity);
-                path.setAttribute("stroke-width", "5");
                 path.setAttribute("fill", "none");
-                path.setAttribute("stroke-linecap", "butt");
                 path.setAttribute("class", "price-segment");
-
-                // Pointer Events (Unified Mouse/Touch)
-                path.addEventListener('pointerenter', (e) => {
-                    if (touchTimeout) clearTimeout(touchTimeout);
-                    
-                    const timeStr = start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
-                    const label = document.getElementById('label-text');
-                    label.innerText = `@ ${timeStr}`;
-                    label.style.color = style.color;
-                    updateDisplay(r.value_inc_vat, style.color);
-
-                    // Auto-revert for touch users after 3 seconds
-                    if (e.pointerType === 'touch') {
-                        touchTimeout = setTimeout(resetToLive, 3000);
-                    }
-                });
-
-                path.addEventListener('pointerleave', (e) => {
-                    // Only revert immediately if it's a mouse
-                    if (e.pointerType === 'mouse') {
-                        resetToLive();
-                    }
-                });
-
                 segs.appendChild(path);
             }
         });
     }
 
-    function resetToLive() {
-        const label = document.getElementById('label-text');
-        label.innerText = `Agile Pricing`;
-        label.style.color = '#333';
-        updateClockUI();
+    function setupInteractions() {
+        const container = document.getElementById('clock-container');
+        const svg = document.getElementById('clock-svg');
+
+        const handleInput = (e) => {
+            const rect = svg.getBoundingClientRect();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            
+            // Calculate angle from center
+            const x = clientX - (rect.left + rect.width / 2);
+            const y = clientY - (rect.top + rect.height / 2);
+            let angle = Math.atan2(y, x) * (180 / Math.PI) + 90;
+            if (angle < 0) angle += 360;
+
+            // Convert angle to decimal hour (0-24)
+            const targetHour = (angle / 360) * 24;
+            findAndDisplayPrice(targetHour);
+            
+            isScrubbing = true;
+            if (revertTimeout) clearTimeout(revertTimeout);
+        };
+
+        container.addEventListener('touchstart', (e) => { e.preventDefault(); handleInput(e); });
+        container.addEventListener('touchmove', (e) => { e.preventDefault(); handleInput(e); });
+        container.addEventListener('mousemove', (e) => { if (e.buttons === 1) handleInput(e); });
+
+        const endInput = () => {
+            isScrubbing = false;
+            revertTimeout = setTimeout(() => {
+                document.getElementById('label-text').innerText = "Agile Pricing";
+                document.getElementById('label-text').style.color = "#333";
+                updateClockUI();
+            }, 2000);
+        };
+
+        container.addEventListener('touchend', endInput);
+        window.addEventListener('mouseup', endInput);
+    }
+
+    function findAndDisplayPrice(targetHour) {
+        // Find matching rate in cached data
+        // We look for a rate where the valid_from hour matches the target
+        const rate = cachedAgile.find(r => {
+            const d = new Date(r.valid_from);
+            const h = d.getHours() + (d.getMinutes() / 60);
+            return targetHour >= h && targetHour < (h + 0.5);
+        });
+
+        if (rate) {
+            const timeStr = new Date(rate.valid_from).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+            const style = getSegmentStyle(rate.value_inc_vat);
+            
+            document.getElementById('label-text').innerText = `@ ${timeStr}`;
+            document.getElementById('label-text').style.color = style.color;
+            updateDisplay(rate.value_inc_vat, style.color);
+        }
     }
 
     function updateDisplay(price, color) {
@@ -178,6 +197,7 @@
     }
 
     function updateClockUI() {
+        if (isScrubbing) return;
         const now = new Date();
         const rotation = (((now.getHours() * 60) + now.getMinutes()) / 1440) * 360;
         document.getElementById('now-pointer').setAttribute("transform", `rotate(${rotation} 120 120)`);
@@ -189,16 +209,14 @@
         });
 
         if (currentRate) {
-            const p = currentRate.value_inc_vat;
-            const style = getSegmentStyle(p);
-            updateDisplay(p, style.color);
+            updateDisplay(currentRate.value_inc_vat, getSegmentStyle(currentRate.value_inc_vat).color);
         }
     }
 
     function refreshUI() {
-        const now = new Date();
         renderSegments(); 
         updateClockUI();
+        const now = new Date();
         if (now.getHours() >= 16 && lastFetchDate !== now.toLocaleDateString()) fetchData();
     }
 
