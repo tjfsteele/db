@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Octopus Agile Clock - Full Cycle</title>
+    <title>Octopus Agile Clock - Universal Input</title>
     <style>
         body { background: #000; color: #fff; font-family: -apple-system, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; overflow: hidden; }
         #clock-container { width: 95vw; height: 95vw; max-width: 500px; position: relative; touch-action: none; }
-        svg { width: 100%; height: 100%; background: #000; }
+        svg { width: 100%; height: 100%; background: #000; cursor: crosshair; }
         
         .hour-text { fill: #222; font-size: 10px; font-weight: 800; text-anchor: middle; dominant-baseline: middle; pointer-events: none; }
         #now-pointer { fill: #fff; filter: drop-shadow(0 0 3px rgba(255,255,255,0.8)); transition: transform 0.8s cubic-bezier(0.4, 0, 0.2, 1); pointer-events: none; z-index: 10; }
@@ -49,7 +49,7 @@
     let cachedAgile = [];
     let trackerPrice = null;
     let lastFetchDate = null;
-    let isScrubbing = false;
+    let isInteracting = false;
     let revertTimeout = null;
 
     async function init() {
@@ -86,7 +86,6 @@
             trackerPrice = todayTracker ? todayTracker.value_inc_vat : tData.results[0].value_inc_vat;
             document.getElementById('tracker-ref').innerText = `Tracker: ${trackerPrice.toFixed(2)}p`;
 
-            // Keep only rates that haven't expired yet
             cachedAgile = aData.results
                 .filter(r => new Date(r.valid_to) > now)
                 .sort((a, b) => new Date(a.valid_from) - new Date(b.valid_from));
@@ -111,19 +110,13 @@
         segs.innerHTML = '';
         const now = new Date();
 
-        // Use a Map to ensure we only show one segment per half-hour slot
-        // If we have "Tomorrow 2pm" and "Today 2pm" (expired), filter handles it
-        // If both are in the future (rare edge case), we take the earliest one first
         cachedAgile.forEach(r => {
             const start = new Date(r.valid_from);
-            const validTo = new Date(r.valid_to);
-            
-            if (validTo > now) {
+            if (new Date(r.valid_to) > now) {
                 const h = start.getHours() + (start.getMinutes() / 60);
                 let startA = (h / 24) * 360 - 90;
                 let endA = startA + (0.5 / 24) * 360; 
 
-                // Visual gap for the very last piece of data available
                 if (r === cachedAgile[cachedAgile.length - 1]) endA -= 3;
 
                 const style = getSegmentStyle(r.value_inc_vat);
@@ -142,10 +135,10 @@
         const container = document.getElementById('clock-container');
         const svg = document.getElementById('clock-svg');
 
-        const handleInput = (e) => {
+        const handlePointer = (e) => {
             const rect = svg.getBoundingClientRect();
-            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            const clientX = e.clientX || (e.touches ? e.touches[0].clientX : 0);
+            const clientY = e.clientY || (e.touches ? e.touches[0].clientY : 0);
             
             const x = clientX - (rect.left + rect.width / 2);
             const y = clientY - (rect.top + rect.height / 2);
@@ -154,17 +147,15 @@
 
             const targetHour = (angle / 360) * 24;
             
-            // Look for a rate in our cached future data that matches this hour
-            // This automatically skips 'past' hours because they were filtered out in fetchData
+            // Find rate: uses a small tolerance (0.25) to snap to the nearest 30m slot
             const rate = cachedAgile.find(r => {
                 const d = new Date(r.valid_from);
                 const h = d.getHours() + (d.getMinutes() / 60);
-                // Check if target matches this slot (accounting for 30m steps)
-                return Math.abs(targetHour - h) < 0.25 || (targetHour >= h && targetHour < h + 0.5);
+                return targetHour >= h && targetHour < h + 0.5;
             });
 
             if (rate) {
-                isScrubbing = true;
+                isInteracting = true;
                 if (revertTimeout) clearTimeout(revertTimeout);
                 
                 const d = new Date(rate.valid_from);
@@ -176,27 +167,30 @@
                 document.getElementById('label-text').style.color = style.color;
                 updateDisplay(rate.value_inc_vat, style.color);
             } else {
-                // If touching a black area, revert to now
-                if (isScrubbing) resetToLive();
+                // In the "black zone"
+                if (isInteracting) resetToLive();
             }
         };
 
-        container.addEventListener('touchstart', (e) => { e.preventDefault(); handleInput(e); });
-        container.addEventListener('touchmove', (e) => { e.preventDefault(); handleInput(e); });
-        container.addEventListener('mousemove', (e) => { if (e.buttons === 1) handleInput(e); });
+        // Desktop Hover
+        container.addEventListener('mousemove', handlePointer);
+        
+        // Mobile Touch
+        container.addEventListener('touchstart', (e) => { e.preventDefault(); handlePointer(e); });
+        container.addEventListener('touchmove', (e) => { e.preventDefault(); handlePointer(e); });
 
+        // Revert Logic
         const endInput = () => {
-            if (!isScrubbing) return;
-            isScrubbing = false;
-            revertTimeout = setTimeout(resetToLive, 1500);
+            if (!isInteracting) return;
+            revertTimeout = setTimeout(resetToLive, 1200);
         };
 
         container.addEventListener('touchend', endInput);
-        window.addEventListener('mouseup', endInput);
+        container.addEventListener('mouseleave', resetToLive);
     }
 
     function resetToLive() {
-        isScrubbing = false;
+        isInteracting = false;
         document.getElementById('label-text').innerText = "Agile Pricing";
         document.getElementById('label-text').style.color = "#333";
         updateClockUI();
@@ -209,7 +203,7 @@
     }
 
     function updateClockUI() {
-        if (isScrubbing) return;
+        if (isInteracting) return;
         const now = new Date();
         const rotation = (((now.getHours() * 60) + now.getMinutes()) / 1440) * 360;
         document.getElementById('now-pointer').setAttribute("transform", `rotate(${rotation} 120 120)`);
@@ -227,13 +221,9 @@
 
     function refreshUI() {
         const now = new Date();
-        // Remove expired rates from cache
         cachedAgile = cachedAgile.filter(r => new Date(r.valid_to) > now);
-        
         renderSegments(); 
         updateClockUI();
-        
-        // Fetch new data if it's past 4pm and we haven't updated for today yet
         if (now.getHours() >= 16 && lastFetchDate !== now.toLocaleDateString()) fetchData();
     }
 
