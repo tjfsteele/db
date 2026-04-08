@@ -91,7 +91,14 @@
             labelsG.appendChild(text);
         }
     }
-
+    // Add this helper at the top of your script or inside fetchData
+    function hasTomorrowData() {
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const tomorrowStr = tomorrow.toISOString().split('T')[0];
+        return cachedAgile.some(r => r.valid_from.startsWith(tomorrowStr));
+    }
+    
     async function fetchData() {
         try {
             const now = new Date();
@@ -99,19 +106,23 @@
             const [tRes, aRes] = await Promise.all([fetch(TRACKER_API), fetch(AGILE_API)]);
             const tData = await tRes.json();
             const aData = await aRes.json();
-
+    
             const todayTracker = tData.results.find(r => r.valid_from.startsWith(todayStr));
             trackerPrice = todayTracker ? todayTracker.value_inc_vat : tData.results[0].value_inc_vat;
             document.getElementById('tracker-ref').innerText = `Tracker: ${trackerPrice.toFixed(2)}p`;
-
+    
             cachedAgile = aData.results
                 .filter(r => parseDate(r.valid_to) > now)
                 .sort((a, b) => parseDate(a.valid_from) - parseDate(b.valid_from));
             
+            // Update the date to today to prevent re-fetching today
             lastFetchDate = now.toLocaleDateString();
+            
             renderSegments();
             updateClockUI();
-        } catch (e) { console.error("Fetch Error:", e); }
+        } catch (e) { 
+            console.error("Fetch Error:", e); 
+        }
     }
 
     function getSegmentStyle(price) {
@@ -233,12 +244,21 @@
         }
     }
 
+    
     function refreshUI() {
         const now = new Date();
+        
+        // 1. Clean up expired rates
         cachedAgile = cachedAgile.filter(r => parseDate(r.valid_to) > now);
+        
+        // 2. Logic Check: If it's after 4pm AND we don't have tomorrow's data yet, try fetching
+        if (now.getHours() >= 16 && !hasTomorrowData()) {
+            console.log("4pm reached, fetching tomorrow's rates...");
+            fetchData();
+        }
+    
         renderSegments(); 
         updateClockUI();
-        if (now.getHours() >= 16 && lastFetchDate !== now.toLocaleDateString()) fetchData();
     }
 
     function describeArc(x, y, r, startA, endA) {
