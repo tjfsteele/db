@@ -138,28 +138,28 @@
         const segs = document.getElementById('segments');
         segs.innerHTML = '';
         const now = new Date();
+        
+        // Create a cutoff exactly 24 hours from now
+        const twentyFourHoursFromNow = new Date(now.getTime() + (24 * 60 * 60 * 1000));
     
         cachedAgile.forEach(r => {
             const start = parseDate(r.valid_from);
             const end = parseDate(r.valid_to);
     
-            // Only draw segments that are currently active or in the future
-            if (end > now) {
+            // 1. Only draw segments that haven't ended yet
+            // 2. Only draw segments within the next 24 hours to prevent stacking
+            if (end > now && start < twentyFourHoursFromNow) {
                 const h = start.getHours() + (start.getMinutes() / 60);
                 
-                // Adjust start angle: 24h clock (360/24 = 15 degrees per hour)
+                // Map the 24 hours to 360 degrees, offset by -90 to start at 0 (top)
                 let startA = (h / 24) * 360 - 90;
                 let endA = startA + (0.5 / 24) * 360; 
     
-                // Add a tiny gap between segments for visual clarity
-                const gap = 0.5; 
-                
                 const style = getSegmentStyle(r.value_inc_vat);
                 const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
                 
-                // Note: If you have tomorrow's data, it will currently draw OVER today's segments
-                // because they share the same 24h coordinates. 
-                path.setAttribute("d", describeArc(120, 120, 85, startA + gap, endA - gap));
+                // We use a small 0.5 degree gap to create the 'block' effect
+                path.setAttribute("d", describeArc(120, 120, 85, startA + 0.5, endA - 0.5));
                 path.setAttribute("stroke", style.color);
                 path.setAttribute("stroke-opacity", style.opacity);
                 path.setAttribute("fill", "none");
@@ -168,7 +168,8 @@
             }
         });
     }
-    function setupInteractions() {
+    
+        function setupInteractions() {
         const container = document.getElementById('clock-container');
         const svg = document.getElementById('clock-svg');
 
