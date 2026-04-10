@@ -136,73 +136,69 @@
         return { color, opacity };
     }
     
-    function renderSegments() {
+function renderSegments() {
         const segs = document.getElementById('segments');
         segs.innerHTML = '';
         const now = new Date();
         
-        // 1. Identify specific time windows
-        const gapTime = new Date(now.getTime() - (30 * 60 * 1000));
+        // Define the start of the 24-hour window we want to show
         const twentyFourHoursFromNow = new Date(now.getTime() + (24 * 60 * 60 * 1000));
-    
-        // 2. Pass 1: Filter the data to only include the "Current 24h cycle"
-        // This ensures we only have ONE price per half-hour slot on the dial.
-        const activeData = cachedAgile.filter(r => {
+        
+        // Find the "Gap" block: the one that ended exactly when the current one started
+        // (roughly 30 mins ago)
+        const gapTime = new Date(now.getTime() - (30 * 60 * 1000));
+
+        // Filter and sort: Only include segments that belong in the current 24h view
+        // and sort them Oldest -> Newest so Today takes priority over Tomorrow
+        const displayData = cachedAgile
+            .filter(r => {
+                const start = parseDate(r.valid_from);
+                const end = parseDate(r.valid_to);
+                // Keep it if it's the gap OR if it's currently/future active within 24h
+                return (gapTime >= start && gapTime < end) || (end > now && start < twentyFourHoursFromNow);
+            })
+            .sort((a, b) => parseDate(a.valid_from) - parseDate(b.valid_from));
+
+        displayData.forEach(r => {
             const start = parseDate(r.valid_from);
             const end = parseDate(r.valid_to);
-            
-            // Include if it's the gap block OR if it's currently/future active
             const isGap = gapTime >= start && gapTime < end;
-            const isCurrentOrFuture = end > now && start < twentyFourHoursFromNow;
-            
-            return isGap || isCurrentOrFuture;
-        });
-    
-        // 3. Pass 2: Render the filtered data
-        activeData.forEach(r => {
-            const start = parseDate(r.valid_from);
-            const end = parseDate(r.valid_to);
-            const isGap = gapTime >= start && gapTime < end;
-    
+
             const h = start.getHours() + (start.getMinutes() / 60);
             let startA = (h / 24) * 360 - 90;
             let endA = startA + (0.5 / 24) * 360; 
-    
+
             const style = getSegmentStyle(r.value_inc_vat);
             const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
             
             path.setAttribute("d", describeArc(120, 120, 85, startA + 0.5, endA - 0.5));
             
             if (isGap) {
-                // Force the gap to be black and opaque
+                // The gap must be solid black and opaque to clear the ring
                 path.setAttribute("stroke", "#000000");
                 path.setAttribute("stroke-opacity", "1");
-                path.setAttribute("style", "stroke-width: 12;"); // Thicker to mask everything
+                path.setAttribute("style", "stroke-width: 12;"); 
             } else {
                 path.setAttribute("stroke", style.color);
                 path.setAttribute("stroke-opacity", style.opacity);
             }
-    
+
             path.setAttribute("fill", "none");
             path.setAttribute("class", "price-segment");
             segs.appendChild(path);
         });
-    }        
+    }
+        
     function refreshUI() {
         const now = new Date();
-        
-        // DO NOT filter cachedAgile here. 
-        // If we delete past data, renderSegments cannot find the 'Gap' block.
-        
         if (now.getHours() >= 16 && !hasTomorrowData()) {
             fetchData();
         }
-    
         renderSegments(); 
         updateClockUI();
     }
-    
-        function setupInteractions() {
+
+    function setupInteractions() {
         const container = document.getElementById('clock-container');
         const svg = document.getElementById('clock-svg');
 
@@ -220,10 +216,14 @@
 
             const targetHour = (angle / 360) * 24;
             
+            // Find the rate that matches the hovered hour and is within 24h of now
+            const now = new Date();
+            const maxLookahead = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+
             const rate = cachedAgile.find(r => {
                 const d = parseDate(r.valid_from);
                 const h = d.getHours() + (d.getMinutes() / 60);
-                return targetHour >= h && targetHour < h + 0.5;
+                return targetHour >= h && targetHour < h + 0.5 && d < maxLookahead && parseDate(r.valid_to) > now;
             });
 
             if (rate) {
@@ -231,7 +231,7 @@
                 if (revertTimeout) clearTimeout(revertTimeout);
                 
                 const d = parseDate(rate.valid_from);
-                const isTomorrow = d.getDate() !== new Date().getDate();
+                const isTomorrow = d.getDate() !== now.getDate();
                 const timeStr = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
                 const style = getSegmentStyle(rate.value_inc_vat);
                 
@@ -272,22 +272,20 @@
     function updateClockUI() {
         if (isInteracting) return;
         const now = new Date();
-        
         const rotation = (((now.getHours() * 60) + now.getMinutes()) / 1440) * 360;
         document.getElementById('now-pointer').setAttribute("transform", `rotate(${rotation} 120 120)`);
 
         const currentRate = cachedAgile.find(r => {
-                const start = parseDate(r.valid_from);
-                const end = parseDate(r.valid_to);
-                return now >= start && now < end;
-            });
-    
+            const start = parseDate(r.valid_from);
+            const end = parseDate(r.valid_to);
+            return now >= start && now < end;
+        });
+
         if (currentRate) {
             updateDisplay(currentRate.value_inc_vat, getSegmentStyle(currentRate.value_inc_vat).color);
         }
     }
-    
-    
+
     function describeArc(x, y, r, startA, endA) {
         const s = { x: x + r * Math.cos(endA * Math.PI / 180), y: y + r * Math.sin(endA * Math.PI / 180) };
         const e = { x: x + r * Math.cos(startA * Math.PI / 180), y: y + r * Math.sin(startA * Math.PI / 180) };
