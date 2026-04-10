@@ -113,6 +113,7 @@
             document.getElementById('tracker-ref').innerText = `Tracker: ${trackerPrice.toFixed(2)}p`;
     
             cachedAgile = aData.results;
+            console.log(`Fetched ${cachedAgile.length} Agile rates.`);
             renderSegments();
             updateClockUI();
         } catch (e) { console.error("Fetch Error:", e); }
@@ -132,53 +133,61 @@
         segs.innerHTML = '';
         const now = new Date();
         
-        // 1. Calculate the START of the current and gap blocks
-        const currentStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), now.getMinutes() < 30 ? 0 : 30);
-        const gapStart = new Date(currentStart.getTime() - (30 * 60 * 1000));
+        // Target the specific block that just finished (the Gap)
+        const currentBlockStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), now.getMinutes() < 30 ? 0 : 30);
+        const gapStart = new Date(currentBlockStart.getTime() - (30 * 60 * 1000));
         const cutoff = new Date(now.getTime() + (24 * 60 * 60 * 1000));
 
-        // 2. Filter data: keep the specific gap block + anything currently active or in the next 24h
-        const activeData = cachedAgile.filter(r => {
-            const s = parseDate(r.valid_from);
-            const e = parseDate(r.valid_to);
-            const isGap = s.getTime() === gapStart.getTime();
-            const isRelevant = e > now && s < cutoff;
-            return isGap || isRelevant;
-        }).sort((a, b) => parseDate(a.valid_from) - parseDate(b.valid_from));
+        console.log(`Rendering dial. Current Block Start: ${currentBlockStart.toLocaleTimeString()}. Gap Start: ${gapStart.toLocaleTimeString()}`);
 
-        activeData.forEach(r => {
+        // Sort data Today-first, then Tomorrow
+        const sortedData = [...cachedAgile].sort((a, b) => parseDate(a.valid_from) - parseDate(b.valid_from));
+
+        let gapFound = false;
+        let renderedCount = 0;
+
+        sortedData.forEach(r => {
             const start = parseDate(r.valid_from);
+            const end = parseDate(r.valid_to);
+
             const isGap = start.getTime() === gapStart.getTime();
+            const isRelevant = (end > now && start < cutoff);
 
-            const h = start.getHours() + (start.getMinutes() / 60);
-            const startA = (h / 24) * 360 - 90;
-            const endA = startA + (0.5 / 24) * 360; 
+            if (isGap || isRelevant) {
+                const h = start.getHours() + (start.getMinutes() / 60);
+                const startA = (h / 24) * 360 - 90;
+                const endA = startA + (0.5 / 24) * 360; 
 
-            const style = getSegmentStyle(r.value_inc_vat);
-            const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-            path.setAttribute("d", describeArc(120, 120, 85, startA + 0.5, endA - 0.5));
-            
-            if (isGap) {
-                path.setAttribute("stroke", "#000000");
-                path.setAttribute("stroke-opacity", "1");
-                path.setAttribute("style", "stroke-width: 14;");
-            } else {
-                path.setAttribute("stroke", style.color);
-                path.setAttribute("stroke-opacity", style.opacity);
-                path.setAttribute("style", "stroke-width: 6;");
+                const style = getSegmentStyle(r.value_inc_vat);
+                const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                path.setAttribute("d", describeArc(120, 120, 85, startA + 0.5, endA - 0.5));
+                
+                if (isGap) {
+                    gapFound = true;
+                    path.setAttribute("stroke", "#000000");
+                    path.setAttribute("stroke-opacity", "1");
+                    path.setAttribute("style", "stroke-width: 16;"); // Extra thick to ensure visibility
+                    path.setAttribute("class", "gap-segment");
+                } else {
+                    path.setAttribute("stroke", style.color);
+                    path.setAttribute("stroke-opacity", style.opacity);
+                    path.setAttribute("style", "stroke-width: 6;");
+                    path.setAttribute("class", "price-segment");
+                }
+
+                path.setAttribute("fill", "none");
+                segs.appendChild(path);
+                renderedCount++;
             }
-
-            path.setAttribute("fill", "none");
-            path.setAttribute("class", "price-segment");
-            segs.appendChild(path);
         });
+
+        console.log(`Rendered ${renderedCount} segments. Gap Block found: ${gapFound}`);
     }        
 
     function refreshUI() {
-        const now = new Date();
-        if (now.getHours() >= 16 && !hasTomorrowData()) fetchData();
         renderSegments(); 
         updateClockUI();
+        if (new Date().getHours() >= 16 && !hasTomorrowData()) fetchData();
     }
     
     function setupInteractions() {
@@ -200,11 +209,14 @@
             const now = new Date();
             const cutoff = new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
-            const rate = cachedAgile.find(r => {
-                const d = parseDate(r.valid_from);
-                const h = d.getHours() + (d.getMinutes() / 60);
-                return targetHour >= h && targetHour < h + 0.5 && d < cutoff && parseDate(r.valid_to) > now;
-            });
+            // Find the rate, prioritizing the most immediate one
+            const rate = [...cachedAgile]
+                .sort((a, b) => parseDate(a.valid_from) - parseDate(b.valid_from))
+                .find(r => {
+                    const d = parseDate(r.valid_from);
+                    const h = d.getHours() + (d.getMinutes() / 60);
+                    return targetHour >= h && targetHour < h + 0.5 && d < cutoff && parseDate(r.valid_to) > now;
+                });
 
             if (rate) {
                 isInteracting = true;
@@ -241,6 +253,7 @@
         const now = new Date();
         const rotation = (((now.getHours() * 60) + now.getMinutes()) / 1440) * 360;
         document.getElementById('now-pointer').setAttribute("transform", `rotate(${rotation} 120 120)`);
+        
         const currentRate = cachedAgile.find(r => {
             const s = parseDate(r.valid_from);
             const e = parseDate(r.valid_to);
