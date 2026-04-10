@@ -281,11 +281,11 @@
                 const end = parseDate(r.valid_to);
                 return now >= start && now < end;
             });
-        
-            if (currentRate) {
-                updateDisplay(currentRate.value_inc_vat, getSegmentStyle(currentRate.value_inc_vat).color);
-            }
+    
+        if (currentRate) {
+            updateDisplay(currentRate.value_inc_vat, getSegmentStyle(currentRate.value_inc_vat).color);
         }
+    }
     
     
     function describeArc(x, y, r, startA, endA) {
