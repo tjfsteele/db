@@ -118,16 +118,6 @@
     let REG = localStorage.getItem('octo_reg') || 'A';
     regionSelector.value = REG;
 
-    async function fetchJSON(url, label) {
-        const response = await fetch(url);
-        if (!response.ok) {
-            // This will now show "Tracker Gas: 404 Not Found" instead of just failing
-            const errorMsg = `${label}: ${response.status} ${response.statusText}`;
-            document.getElementById('updated-tag').innerText = errorMsg; 
-            throw new Error(errorMsg);
-        }
-        return response.json();
-    }
     let myChart = null;
     let viewingTomorrow = false; 
 
@@ -142,13 +132,21 @@
         document.getElementById('toggleDay').innerText = viewingTomorrow ? "Show Today" : "Show Tomorrow";
         updateDashboard();
     });
-
+    
+    // Enhanced helper to catch which specific URL 404s
+    const fetchJSON = async (url, label) => {
+        const r = await fetch(url);
+        if (!r.ok) throw new Error(`${label}: ${r.status}`);
+        return r.json();
+    };
+    
     async function updateDashboard() {
         try {
             const [aData, eData, gData] = await Promise.all([
-                fetchJSON(`https://api.octopus.energy/v1/products/AGILE-24-10-01/electricity-tariffs/E-1R-AGILE-24-10-01-${REG}/standard-unit-rates/`),
-                fetchJSON(`https://api.octopus.energy/v1/products/SILVER-26-04-01/electricity-tariffs/E-1R-SILVER-26-04-01-${REG}/standard-unit-rates/`),
-                fetchJSON(`https://api.octopus.energy/v1/products/SILVER-26-04-01/gas-tariffs/G-1R-SILVER-26-04-01-${REG}/standard-unit-rates/`)
+                fetchJSON(`https://api.octopus.energy/v1/products/AGILE-24-10-01/electricity-tariffs/E-1R-AGILE-24-10-01-${REG}/standard-unit-rates/`, "Agile"),
+                fetchJSON(`https://api.octopus.energy/v1/products/SILVER-26-04-01/electricity-tariffs/E-1R-SILVER-26-04-01-${REG}/standard-unit-rates/`, "Elec Tracker"),
+                // FIXED: Changed G-1R-SILVER-261 to SILVER-26-04-01
+                fetchJSON(`https://api.octopus.energy/v1/products/SILVER-26-04-01/gas-tariffs/G-1R-SILVER-26-04-01-${REG}/standard-unit-rates/`, "Gas Tracker")
             ]);
 
             const agileFull = aData.results.sort((a,b) => new Date(a.valid_from) - new Date(b.valid_from));
