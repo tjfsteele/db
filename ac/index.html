@@ -144,7 +144,7 @@
         segs.innerHTML = '';
         const now = new Date();
         
-        // Get the start and end of "Today" to prevent tomorrow's overlap
+        // We only want to show segments for the current calendar date
         const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
     
@@ -152,7 +152,7 @@
             const start = parseDate(r.valid_from);
             const end = parseDate(r.valid_to);
     
-            // Only draw segments that belong to today's clock face
+            // FIX 1: Only draw segments belonging to TODAY (prevents tomorrow's overlap)
             if (start >= startOfToday && start <= endOfToday) {
                 const h = start.getHours() + (start.getMinutes() / 60);
                 
@@ -164,9 +164,10 @@
                 
                 path.setAttribute("d", describeArc(120, 120, 85, startA + 0.5, endA - 0.5));
                 
-                // LOGIC: If the segment is in the past, make it black/hidden to create the gap
+                // FIX 2: If the segment has finished (is in the past), 
+                // set stroke to black or transparent to create the "gap" in the ring
                 if (end <= now) {
-                    path.setAttribute("stroke", "#000");
+                    path.setAttribute("stroke", "#000"); // Or "none" if you prefer
                     path.setAttribute("stroke-opacity", "0");
                 } else {
                     path.setAttribute("stroke", style.color);
