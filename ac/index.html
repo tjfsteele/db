@@ -141,22 +141,23 @@
         segs.innerHTML = '';
         const now = new Date();
         
-        // 1. Define our windows
+        // 1. Identify the 'Gap' - the 30-minute window that just finished
         const gapTime = new Date(now.getTime() - (30 * 60 * 1000));
         const twentyFourHoursFromNow = new Date(now.getTime() + (24 * 60 * 60 * 1000));
     
-        // 2. Sort data so we process Today BEFORE Tomorrow
-        // This ensures today's prices are drawn, and tomorrow's fill the expired slots
+        // 2. IMPORTANT: Sort data Oldest to Newest (Today -> Tomorrow)
+        // This ensures Today's prices are handled first
         const sortedData = [...cachedAgile].sort((a, b) => parseDate(a.valid_from) - parseDate(b.valid_from));
     
         sortedData.forEach(r => {
             const start = parseDate(r.valid_from);
             const end = parseDate(r.valid_to);
     
-            // Logic: Is this the gap block?
+            // Logic A: Is this the specific half-hour that just expired?
             const isGap = gapTime >= start && gapTime < end;
             
-            // Logic: Is this a relevant future block (within next 24h)?
+            // Logic B: Is this a future price for today, or a relevant price for tomorrow?
+            // We only draw if the price hasn't expired yet, OR if it's our one special gap block.
             const isCurrentOrFuture = end > now && start < twentyFourHoursFromNow;
     
             if (isGap || isCurrentOrFuture) {
@@ -170,10 +171,10 @@
                 path.setAttribute("d", describeArc(120, 120, 85, startA + 0.5, endA - 0.5));
                 
                 if (isGap) {
-                    // The visual gap: Black and slightly thicker to mask overlaps
+                    // This creates the black void right behind the cursor
                     path.setAttribute("stroke", "#000");
                     path.setAttribute("stroke-opacity", "1");
-                    path.setAttribute("style", "stroke-width: 9;"); 
+                    path.setAttribute("style", "stroke-width: 10;"); // Slightly thicker to 'erase' overlaps
                 } else {
                     path.setAttribute("stroke", style.color);
                     path.setAttribute("stroke-opacity", style.opacity);
@@ -189,17 +190,16 @@
     function refreshUI() {
         const now = new Date();
         
-        // FIX: Removed the .filter line that was deleting old data.
-        // We need that data to stay in cachedAgile so renderSegments can find the 'gap' block.
+        // DO NOT filter cachedAgile here. 
+        // If we delete past data, renderSegments cannot find the 'Gap' block.
         
         if (now.getHours() >= 16 && !hasTomorrowData()) {
-            console.log("4pm reached, fetching tomorrow's rates...");
             fetchData();
         }
     
         renderSegments(); 
         updateClockUI();
-    }    
+    }
         function setupInteractions() {
         const container = document.getElementById('clock-container');
         const svg = document.getElementById('clock-svg');
@@ -273,6 +273,7 @@
         const rotation = (((now.getHours() * 60) + now.getMinutes()) / 1440) * 360;
         document.getElementById('now-pointer').setAttribute("transform", `rotate(${rotation} 120 120)`);
 
+        // Change this line to look for the price where 'now' fits exactly between start and end
         const currentRate = cachedAgile.find(r => {
             const start = parseDate(r.valid_from);
             const end = parseDate(r.valid_to);
