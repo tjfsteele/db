@@ -148,7 +148,7 @@
             const [aData, eData, gData] = await Promise.all([
                 fetchJSON(`https://api.octopus.energy/v1/products/AGILE-24-10-01/electricity-tariffs/E-1R-AGILE-24-10-01-${REG}/standard-unit-rates/`),
                 fetchJSON(`https://api.octopus.energy/v1/products/SILVER-26-04-01/electricity-tariffs/E-1R-SILVER-26-04-01-${REG}/standard-unit-rates/`),
-                fetchJSON(`https://api.octopus.energy/v1/products/SILVER-26-04-01/gas-tariffs/G-1R-SILVER-261-${REG}/standard-unit-rates/`)
+                fetchJSON(`https://api.octopus.energy/v1/products/SILVER-26-04-01/gas-tariffs/G-1R-SILVER-26-04-01-${REG}/standard-unit-rates/`)
             ]);
 
             const agileFull = aData.results.sort((a,b) => new Date(a.valid_from) - new Date(b.valid_from));
