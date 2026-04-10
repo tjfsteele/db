@@ -175,10 +175,11 @@
             });
             
             const nowIdx = (isMobile && viewingTomorrow) ? -1 : filteredAgile.findIndex(d => new Date(d.valid_from) > now) - 1;
-
+            
+            // NEW: Find the rate valid for this exact moment
             const curA = agileFull.find(s => new Date(s.valid_from) <= now && new Date(s.valid_to) > now);
-            const curE = eData.results.find(s => new Date(s.valid_from).getDate() === today.getDate());
-            const curG = gData.results.find(s => new Date(s.valid_from).getDate() === today.getDate());
+            const curE = eData.results.find(s => new Date(s.valid_from) <= now && new Date(s.valid_to) > now);
+            const curG = gData.results.find(s => new Date(s.valid_from) <= now && new Date(s.valid_to) > now);
             
             document.getElementById('ca').innerText = curA ? curA.value_inc_vat.toFixed(1)+'p' : '-';
             document.getElementById('ce').innerText = curE ? curE.value_inc_vat.toFixed(1)+'p' : '-';
