@@ -106,20 +106,17 @@
             const tData = await tRes.json();
             const aData = await aRes.json();
     
-            // FIX: Find the Tracker rate where 'now' is between valid_from and valid_to
             const currentTracker = tData.results.find(r => {
                 const start = new Date(r.valid_from);
                 const end = new Date(r.valid_to);
                 return now >= start && now < end;
             });
     
-            // Use the found rate, or fall back to the first result if no exact match
             trackerPrice = currentTracker ? currentTracker.value_inc_vat : tData.results[0].value_inc_vat;
             document.getElementById('tracker-ref').innerText = `Tracker: ${trackerPrice.toFixed(2)}p`;
     
-            // Rest of your existing Agile logic...
+            // FIX: Don't filter out the 'past' prices for today yet, we need them for the black gap
             cachedAgile = aData.results
-                .filter(r => parseDate(r.valid_to) > now)
                 .sort((a, b) => parseDate(a.valid_from) - parseDate(b.valid_from));
             
             lastFetchDate = now.toLocaleDateString();
@@ -144,17 +141,18 @@
         segs.innerHTML = '';
         const now = new Date();
         
-        // We only want to show segments for the current calendar date
-        const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+        // Define the start and end of the CURRENT calendar day
+        const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+        const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59).getTime();
     
         cachedAgile.forEach(r => {
-            const start = parseDate(r.valid_from);
-            const end = parseDate(r.valid_to);
+            const start = parseDate(r.valid_from).getTime();
+            const end = parseDate(r.valid_to).getTime();
     
-            // FIX 1: Only draw segments belonging to TODAY (prevents tomorrow's overlap)
+            // FIX: Only draw if it belongs to TODAY'S calendar date
             if (start >= startOfToday && start <= endOfToday) {
-                const h = start.getHours() + (start.getMinutes() / 60);
+                const startDate = new Date(start);
+                const h = startDate.getHours() + (startDate.getMinutes() / 60);
                 
                 let startA = (h / 24) * 360 - 90;
                 let endA = startA + (0.5 / 24) * 360; 
@@ -164,11 +162,10 @@
                 
                 path.setAttribute("d", describeArc(120, 120, 85, startA + 0.5, endA - 0.5));
                 
-                // FIX 2: If the segment has finished (is in the past), 
-                // set stroke to black or transparent to create the "gap" in the ring
-                if (end <= now) {
-                    path.setAttribute("stroke", "#000"); // Or "none" if you prefer
-                    path.setAttribute("stroke-opacity", "0");
+                // THE GAP LOGIC: If the slot has ended, make it black/hidden
+                if (end <= now.getTime()) {
+                    path.setAttribute("stroke", "#000");
+                    path.setAttribute("stroke-opacity", "0"); 
                 } else {
                     path.setAttribute("stroke", style.color);
                     path.setAttribute("stroke-opacity", style.opacity);
@@ -180,7 +177,6 @@
             }
         });
     }
-    
         function setupInteractions() {
         const container = document.getElementById('clock-container');
         const svg = document.getElementById('clock-svg');
