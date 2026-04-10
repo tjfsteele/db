@@ -102,22 +102,27 @@
     async function fetchData() {
         try {
             const now = new Date();
-            const todayStr = now.toISOString().split('T')[0];
             const [tRes, aRes] = await Promise.all([fetch(TRACKER_API), fetch(AGILE_API)]);
             const tData = await tRes.json();
             const aData = await aRes.json();
     
-            const todayTracker = tData.results.find(r => r.valid_from.startsWith(todayStr));
-            trackerPrice = todayTracker ? todayTracker.value_inc_vat : tData.results[0].value_inc_vat;
+            // FIX: Find the Tracker rate where 'now' is between valid_from and valid_to
+            const currentTracker = tData.results.find(r => {
+                const start = new Date(r.valid_from);
+                const end = new Date(r.valid_to);
+                return now >= start && now < end;
+            });
+    
+            // Use the found rate, or fall back to the first result if no exact match
+            trackerPrice = currentTracker ? currentTracker.value_inc_vat : tData.results[0].value_inc_vat;
             document.getElementById('tracker-ref').innerText = `Tracker: ${trackerPrice.toFixed(2)}p`;
     
+            // Rest of your existing Agile logic...
             cachedAgile = aData.results
                 .filter(r => parseDate(r.valid_to) > now)
                 .sort((a, b) => parseDate(a.valid_from) - parseDate(b.valid_from));
             
-            // Update the date to today to prevent re-fetching today
             lastFetchDate = now.toLocaleDateString();
-            
             renderSegments();
             updateClockUI();
         } catch (e) { 
