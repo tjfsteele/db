@@ -141,51 +141,59 @@
         segs.innerHTML = '';
         const now = new Date();
         
-        // 1. Identify the current half-hour block start time
+        // 1. Identify current and gap block starts
         const currentBlockStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), now.getMinutes() < 30 ? 0 : 30);
-        
-        // 2. The "Gap" is exactly 30 minutes before the current block starts
         const gapBlockStart = new Date(currentBlockStart.getTime() - (30 * 60 * 1000));
+        const twentyFourHoursFromNow = new Date(now.getTime() + (24 * 60 * 60 * 1000));
     
         cachedAgile.forEach(r => {
             const start = parseDate(r.valid_from);
             const end = parseDate(r.valid_to);
     
-            // Calculate hours for clock position (0-23.5)
-            const h = start.getHours() + (start.getMinutes() / 60);
-            let startA = (h / 24) * 360 - 90;
-            let endA = startA + (0.5 / 24) * 360; 
-    
-            // LOGIC: 
-            // We only draw it if it's the CURRENT block, a FUTURE block, 
-            // OR specifically the one "GAP" block before now.
             const isGap = start.getTime() === gapBlockStart.getTime();
-            const isPast = end <= now && !isGap;
+            const isCurrentOrFuture = end > now && start < twentyFourHoursFromNow;
     
-            // If it's in the past and NOT the gap, don't draw it 
-            // (This allows tomorrow's price for the same time slot to be drawn instead)
-            if (isPast) return;
+            // ONLY draw if it is the specific gap block OR it is a future price
+            if (isGap || isCurrentOrFuture) {
+                const h = start.getHours() + (start.getMinutes() / 60);
+                let startA = (h / 24) * 360 - 90;
+                let endA = startA + (0.5 / 24) * 360; 
     
-            const style = getSegmentStyle(r.value_inc_vat);
-            const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-            
-            path.setAttribute("d", describeArc(120, 120, 85, startA + 0.5, endA - 0.5));
-            
-            if (isGap) {
-                // This makes the block immediately behind the cursor black
-                path.setAttribute("stroke", "#000");
-                path.setAttribute("stroke-opacity", "1");
-            } else {
-                path.setAttribute("stroke", style.color);
-                path.setAttribute("stroke-opacity", style.opacity);
+                const style = getSegmentStyle(r.value_inc_vat);
+                const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                
+                path.setAttribute("d", describeArc(120, 120, 85, startA + 0.5, endA - 0.5));
+                
+                if (isGap) {
+                    // The visual gap: Black and fully opaque to hide anything underneath
+                    path.setAttribute("stroke", "#000");
+                    path.setAttribute("stroke-opacity", "1");
+                } else {
+                    path.setAttribute("stroke", style.color);
+                    path.setAttribute("stroke-opacity", style.opacity);
+                }
+    
+                path.setAttribute("fill", "none");
+                path.setAttribute("class", "price-segment");
+                segs.appendChild(path);
             }
-    
-            path.setAttribute("fill", "none");
-            path.setAttribute("class", "price-segment");
-            segs.appendChild(path);
         });
     }
+    
+    function refreshUI() {
+        const now = new Date();
         
+        // FIX: Removed the .filter line that was deleting old data.
+        // We need that data to stay in cachedAgile so renderSegments can find the 'gap' block.
+        
+        if (now.getHours() >= 16 && !hasTomorrowData()) {
+            console.log("4pm reached, fetching tomorrow's rates...");
+            fetchData();
+        }
+    
+        renderSegments(); 
+        updateClockUI();
+    }    
         function setupInteractions() {
         const container = document.getElementById('clock-container');
         const svg = document.getElementById('clock-svg');
@@ -268,23 +276,6 @@
         if (currentRate) {
             updateDisplay(currentRate.value_inc_vat, getSegmentStyle(currentRate.value_inc_vat).color);
         }
-    }
-
-    
-    function refreshUI() {
-        const now = new Date();
-        
-        // 1. Clean up expired rates
-        cachedAgile = cachedAgile.filter(r => parseDate(r.valid_to) > now);
-        
-        // 2. Logic Check: If it's after 4pm AND we don't have tomorrow's data yet, try fetching
-        if (now.getHours() >= 16 && !hasTomorrowData()) {
-            console.log("4pm reached, fetching tomorrow's rates...");
-            fetchData();
-        }
-    
-        renderSegments(); 
-        updateClockUI();
     }
 
     function describeArc(x, y, r, startA, endA) {
