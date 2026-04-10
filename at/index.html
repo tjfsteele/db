@@ -118,7 +118,16 @@
     let REG = localStorage.getItem('octo_reg') || 'A';
     regionSelector.value = REG;
 
-    const fetchJSON = url => fetch(url).then(r => r.json());
+    async function fetchJSON(url, label) {
+        const response = await fetch(url);
+        if (!response.ok) {
+            // This will now show "Tracker Gas: 404 Not Found" instead of just failing
+            const errorMsg = `${label}: ${response.status} ${response.statusText}`;
+            document.getElementById('updated-tag').innerText = errorMsg; 
+            throw new Error(errorMsg);
+        }
+        return response.json();
+    }
     let myChart = null;
     let viewingTomorrow = false; 
 
