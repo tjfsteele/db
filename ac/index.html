@@ -135,29 +135,23 @@
         const color = price <= trackerPrice ? '#00ff88' : '#ff4444';
         return { color, opacity };
     }
-
     function renderSegments() {
         const segs = document.getElementById('segments');
         segs.innerHTML = '';
         const now = new Date();
         
-        // 1. Identify the 'Gap' - the 30-minute window that just finished
+        // Identify the block that ended within the last 30 minutes
         const gapTime = new Date(now.getTime() - (30 * 60 * 1000));
         const twentyFourHoursFromNow = new Date(now.getTime() + (24 * 60 * 60 * 1000));
     
-        // 2. IMPORTANT: Sort data Oldest to Newest (Today -> Tomorrow)
-        // This ensures Today's prices are handled first
+        // Sort Today first, Tomorrow second
         const sortedData = [...cachedAgile].sort((a, b) => parseDate(a.valid_from) - parseDate(b.valid_from));
     
         sortedData.forEach(r => {
             const start = parseDate(r.valid_from);
             const end = parseDate(r.valid_to);
     
-            // Logic A: Is this the specific half-hour that just expired?
             const isGap = gapTime >= start && gapTime < end;
-            
-            // Logic B: Is this a future price for today, or a relevant price for tomorrow?
-            // We only draw if the price hasn't expired yet, OR if it's our one special gap block.
             const isCurrentOrFuture = end > now && start < twentyFourHoursFromNow;
     
             if (isGap || isCurrentOrFuture) {
@@ -171,10 +165,10 @@
                 path.setAttribute("d", describeArc(120, 120, 85, startA + 0.5, endA - 0.5));
                 
                 if (isGap) {
-                    // This creates the black void right behind the cursor
+                    // The Visual Gap: Solid Black
                     path.setAttribute("stroke", "#000");
                     path.setAttribute("stroke-opacity", "1");
-                    path.setAttribute("style", "stroke-width: 10;"); // Slightly thicker to 'erase' overlaps
+                    path.setAttribute("style", "stroke-width: 12;"); // Thick stroke to ensure no bleed
                 } else {
                     path.setAttribute("stroke", style.color);
                     path.setAttribute("stroke-opacity", style.opacity);
@@ -200,6 +194,7 @@
         renderSegments(); 
         updateClockUI();
     }
+    
         function setupInteractions() {
         const container = document.getElementById('clock-container');
         const svg = document.getElementById('clock-svg');
@@ -270,21 +265,22 @@
     function updateClockUI() {
         if (isInteracting) return;
         const now = new Date();
+        
         const rotation = (((now.getHours() * 60) + now.getMinutes()) / 1440) * 360;
         document.getElementById('now-pointer').setAttribute("transform", `rotate(${rotation} 120 120)`);
 
-        // Change this line to look for the price where 'now' fits exactly between start and end
         const currentRate = cachedAgile.find(r => {
-            const start = parseDate(r.valid_from);
-            const end = parseDate(r.valid_to);
-            return now >= start && now < end;
-        });
-
-        if (currentRate) {
-            updateDisplay(currentRate.value_inc_vat, getSegmentStyle(currentRate.value_inc_vat).color);
+                const start = parseDate(r.valid_from);
+                const end = parseDate(r.valid_to);
+                return now >= start && now < end;
+            });
+        
+            if (currentRate) {
+                updateDisplay(currentRate.value_inc_vat, getSegmentStyle(currentRate.value_inc_vat).color);
+            }
         }
     }
-
+    
     function describeArc(x, y, r, startA, endA) {
         const s = { x: x + r * Math.cos(endA * Math.PI / 180), y: y + r * Math.sin(endA * Math.PI / 180) };
         const e = { x: x + r * Math.cos(startA * Math.PI / 180), y: y + r * Math.sin(startA * Math.PI / 180) };
