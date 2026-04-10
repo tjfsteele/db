@@ -53,6 +53,7 @@
 </div>
 
 <script>
+    console.log('script starting');
     const urlParams = new URLSearchParams(window.location.search);
     const REGION = (urlParams.get('region') || 'A').toUpperCase();
     document.getElementById('region-badge').innerText = `Region ${REGION}`;
