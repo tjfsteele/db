@@ -135,52 +135,59 @@
         const color = price <= trackerPrice ? '#00ff88' : '#ff4444';
         return { color, opacity };
     }
+    
     function renderSegments() {
         const segs = document.getElementById('segments');
         segs.innerHTML = '';
         const now = new Date();
         
-        // Identify the block that ended within the last 30 minutes
+        // 1. Identify specific time windows
         const gapTime = new Date(now.getTime() - (30 * 60 * 1000));
         const twentyFourHoursFromNow = new Date(now.getTime() + (24 * 60 * 60 * 1000));
     
-        // Sort Today first, Tomorrow second
-        const sortedData = [...cachedAgile].sort((a, b) => parseDate(a.valid_from) - parseDate(b.valid_from));
-    
-        sortedData.forEach(r => {
+        // 2. Pass 1: Filter the data to only include the "Current 24h cycle"
+        // This ensures we only have ONE price per half-hour slot on the dial.
+        const activeData = cachedAgile.filter(r => {
             const start = parseDate(r.valid_from);
             const end = parseDate(r.valid_to);
-    
+            
+            // Include if it's the gap block OR if it's currently/future active
             const isGap = gapTime >= start && gapTime < end;
             const isCurrentOrFuture = end > now && start < twentyFourHoursFromNow;
-    
-            if (isGap || isCurrentOrFuture) {
-                const h = start.getHours() + (start.getMinutes() / 60);
-                let startA = (h / 24) * 360 - 90;
-                let endA = startA + (0.5 / 24) * 360; 
-    
-                const style = getSegmentStyle(r.value_inc_vat);
-                const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-                
-                path.setAttribute("d", describeArc(120, 120, 85, startA + 0.5, endA - 0.5));
-                
-                if (isGap) {
-                    // The Visual Gap: Solid Black
-                    path.setAttribute("stroke", "#000");
-                    path.setAttribute("stroke-opacity", "1");
-                    path.setAttribute("style", "stroke-width: 12;"); // Thick stroke to ensure no bleed
-                } else {
-                    path.setAttribute("stroke", style.color);
-                    path.setAttribute("stroke-opacity", style.opacity);
-                }
-    
-                path.setAttribute("fill", "none");
-                path.setAttribute("class", "price-segment");
-                segs.appendChild(path);
-            }
+            
+            return isGap || isCurrentOrFuture;
         });
-    }
-        
+    
+        // 3. Pass 2: Render the filtered data
+        activeData.forEach(r => {
+            const start = parseDate(r.valid_from);
+            const end = parseDate(r.valid_to);
+            const isGap = gapTime >= start && gapTime < end;
+    
+            const h = start.getHours() + (start.getMinutes() / 60);
+            let startA = (h / 24) * 360 - 90;
+            let endA = startA + (0.5 / 24) * 360; 
+    
+            const style = getSegmentStyle(r.value_inc_vat);
+            const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+            
+            path.setAttribute("d", describeArc(120, 120, 85, startA + 0.5, endA - 0.5));
+            
+            if (isGap) {
+                // Force the gap to be black and opaque
+                path.setAttribute("stroke", "#000000");
+                path.setAttribute("stroke-opacity", "1");
+                path.setAttribute("style", "stroke-width: 12;"); // Thicker to mask everything
+            } else {
+                path.setAttribute("stroke", style.color);
+                path.setAttribute("stroke-opacity", style.opacity);
+            }
+    
+            path.setAttribute("fill", "none");
+            path.setAttribute("class", "price-segment");
+            segs.appendChild(path);
+        });
+    }        
     function refreshUI() {
         const now = new Date();
         
