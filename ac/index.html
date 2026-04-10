@@ -141,19 +141,24 @@
         segs.innerHTML = '';
         const now = new Date();
         
-        // 1. Identify current and gap block starts
-        const currentBlockStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), now.getMinutes() < 30 ? 0 : 30);
-        const gapBlockStart = new Date(currentBlockStart.getTime() - (30 * 60 * 1000));
+        // 1. Define our windows
+        const gapTime = new Date(now.getTime() - (30 * 60 * 1000));
         const twentyFourHoursFromNow = new Date(now.getTime() + (24 * 60 * 60 * 1000));
     
-        cachedAgile.forEach(r => {
+        // 2. Sort data so we process Today BEFORE Tomorrow
+        // This ensures today's prices are drawn, and tomorrow's fill the expired slots
+        const sortedData = [...cachedAgile].sort((a, b) => parseDate(a.valid_from) - parseDate(b.valid_from));
+    
+        sortedData.forEach(r => {
             const start = parseDate(r.valid_from);
             const end = parseDate(r.valid_to);
     
-            const isGap = start.getTime() === gapBlockStart.getTime();
+            // Logic: Is this the gap block?
+            const isGap = gapTime >= start && gapTime < end;
+            
+            // Logic: Is this a relevant future block (within next 24h)?
             const isCurrentOrFuture = end > now && start < twentyFourHoursFromNow;
     
-            // ONLY draw if it is the specific gap block OR it is a future price
             if (isGap || isCurrentOrFuture) {
                 const h = start.getHours() + (start.getMinutes() / 60);
                 let startA = (h / 24) * 360 - 90;
@@ -165,9 +170,10 @@
                 path.setAttribute("d", describeArc(120, 120, 85, startA + 0.5, endA - 0.5));
                 
                 if (isGap) {
-                    // The visual gap: Black and fully opaque to hide anything underneath
+                    // The visual gap: Black and slightly thicker to mask overlaps
                     path.setAttribute("stroke", "#000");
                     path.setAttribute("stroke-opacity", "1");
+                    path.setAttribute("style", "stroke-width: 9;"); 
                 } else {
                     path.setAttribute("stroke", style.color);
                     path.setAttribute("stroke-opacity", style.opacity);
@@ -179,7 +185,7 @@
             }
         });
     }
-    
+        
     function refreshUI() {
         const now = new Date();
         
