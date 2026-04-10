@@ -141,19 +141,29 @@
         segs.innerHTML = '';
         const now = new Date();
         
-        // Define the start and end of the CURRENT calendar day
-        const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-        const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59).getTime();
+        // Calculate the start of the "Just Expired" block (30 mins ago)
+        const thirtyMinsAgo = new Date(now.getTime() - (30 * 60 * 1000));
     
-        cachedAgile.forEach(r => {
-            const start = parseDate(r.valid_from).getTime();
-            const end = parseDate(r.valid_to).getTime();
+        // 1. Sort data so we draw chronologically
+        const sortedData = [...cachedAgile].sort((a, b) => parseDate(a.valid_from) - parseDate(b.valid_from));
     
-            // FIX: Only draw if it belongs to TODAY'S calendar date
-            if (start >= startOfToday && start <= endOfToday) {
-                const startDate = new Date(start);
-                const h = startDate.getHours() + (startDate.getMinutes() / 60);
+        sortedData.forEach(r => {
+            const start = parseDate(r.valid_from);
+            const end = parseDate(r.valid_to);
+    
+            // Logic: Only draw if it's within the next 24 hours 
+            // OR if it's the specific block that just expired
+            const isPast = end <= now;
+            const isJustExpired = now >= start && now < end; // The current block
+            const isGapBlock = thirtyMinsAgo >= start && thirtyMinsAgo < end; // The block before current
+    
+            // We only care about drawing the gap and future prices
+            if (start < new Date(now.getTime() + 24 * 60 * 60 * 1000)) {
                 
+                // Skip drawing old blocks UNLESS it's the gap block
+                if (isPast && !isGapBlock) return;
+    
+                const h = start.getHours() + (start.getMinutes() / 60);
                 let startA = (h / 24) * 360 - 90;
                 let endA = startA + (0.5 / 24) * 360; 
     
@@ -162,10 +172,10 @@
                 
                 path.setAttribute("d", describeArc(120, 120, 85, startA + 0.5, endA - 0.5));
                 
-                // THE GAP LOGIC: If the slot has ended, make it black/hidden
-                if (end <= now.getTime()) {
+                // Apply the "Gap" - If it's the block immediately before the current one, make it black
+                if (isGapBlock) {
                     path.setAttribute("stroke", "#000");
-                    path.setAttribute("stroke-opacity", "0"); 
+                    path.setAttribute("stroke-opacity", "1");
                 } else {
                     path.setAttribute("stroke", style.color);
                     path.setAttribute("stroke-opacity", style.opacity);
@@ -177,6 +187,7 @@
             }
         });
     }
+        
         function setupInteractions() {
         const container = document.getElementById('clock-container');
         const svg = document.getElementById('clock-svg');
