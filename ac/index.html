@@ -55,8 +55,6 @@
 <script>
     const urlParams = new URLSearchParams(window.location.search);
     const REGION = (urlParams.get('region') || 'A').toUpperCase();
-    
-    // Set the region text immediately
     document.getElementById('region-badge').innerText = `Region ${REGION}`;
 
     const AGILE_API = `https://api.octopus.energy/v1/products/AGILE-24-10-01/electricity-tariffs/E-1R-AGILE-24-10-01-${REGION}/standard-unit-rates/`;
@@ -64,7 +62,6 @@
     
     let cachedAgile = [];
     let trackerPrice = null;
-    let lastFetchDate = null;
     let isInteracting = false;
     let revertTimeout = null;
 
@@ -91,7 +88,7 @@
             labelsG.appendChild(text);
         }
     }
-    // Add this helper at the top of your script or inside fetchData
+
     function hasTomorrowData() {
         const tomorrow = new Date();
         tomorrow.setDate(tomorrow.getDate() + 1);
@@ -115,16 +112,10 @@
             trackerPrice = currentTracker ? currentTracker.value_inc_vat : tData.results[0].value_inc_vat;
             document.getElementById('tracker-ref').innerText = `Tracker: ${trackerPrice.toFixed(2)}p`;
     
-            // FIX: Don't filter out the 'past' prices for today yet, we need them for the black gap
-            cachedAgile = aData.results
-                .sort((a, b) => parseDate(a.valid_from) - parseDate(b.valid_from));
-            
-            lastFetchDate = now.toLocaleDateString();
+            cachedAgile = aData.results;
             renderSegments();
             updateClockUI();
-        } catch (e) { 
-            console.error("Fetch Error:", e); 
-        }
+        } catch (e) { console.error("Fetch Error:", e); }
     }
 
     function getSegmentStyle(price) {
@@ -141,67 +132,55 @@
         segs.innerHTML = '';
         const now = new Date();
         
-        // 1. Calculate the start time of the current half-hour block
-        const currentBlockStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), now.getMinutes() < 30 ? 0 : 30);
-        
-        // 2. The Gap is exactly 30 minutes before the current block started
-        const gapBlockStart = new Date(currentBlockStart.getTime() - (30 * 60 * 1000));
-        const twentyFourHoursFromNow = new Date(now.getTime() + (24 * 60 * 60 * 1000));
-    
-        // 3. Filter and sort
-        const displayData = cachedAgile
-            .filter(r => {
-                const start = parseDate(r.valid_from);
-                const end = parseDate(r.valid_to);
-                
-                // Check if this block is specifically the gap block
-                const isGap = start.getTime() === gapBlockStart.getTime();
-                // Check if it's currently active or in the future (within 24h)
-                const isCurrentOrFuture = end > now && start < twentyFourHoursFromNow;
-                
-                return isGap || isCurrentOrFuture;
-            })
-            .sort((a, b) => parseDate(a.valid_from) - parseDate(b.valid_from));
-    
-        displayData.forEach(r => {
+        // 1. Calculate the START of the current and gap blocks
+        const currentStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), now.getMinutes() < 30 ? 0 : 30);
+        const gapStart = new Date(currentStart.getTime() - (30 * 60 * 1000));
+        const cutoff = new Date(now.getTime() + (24 * 60 * 60 * 1000));
+
+        // 2. Filter data: keep the specific gap block + anything currently active or in the next 24h
+        const activeData = cachedAgile.filter(r => {
+            const s = parseDate(r.valid_from);
+            const e = parseDate(r.valid_to);
+            const isGap = s.getTime() === gapStart.getTime();
+            const isRelevant = e > now && s < cutoff;
+            return isGap || isRelevant;
+        }).sort((a, b) => parseDate(a.valid_from) - parseDate(b.valid_from));
+
+        activeData.forEach(r => {
             const start = parseDate(r.valid_from);
-            const isGap = start.getTime() === gapBlockStart.getTime();
-    
+            const isGap = start.getTime() === gapStart.getTime();
+
             const h = start.getHours() + (start.getMinutes() / 60);
-            let startA = (h / 24) * 360 - 90;
-            let endA = startA + (0.5 / 24) * 360; 
-    
+            const startA = (h / 24) * 360 - 90;
+            const endA = startA + (0.5 / 24) * 360; 
+
             const style = getSegmentStyle(r.value_inc_vat);
             const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-            
             path.setAttribute("d", describeArc(120, 120, 85, startA + 0.5, endA - 0.5));
             
             if (isGap) {
-                // High-priority black block
                 path.setAttribute("stroke", "#000000");
                 path.setAttribute("stroke-opacity", "1");
-                path.setAttribute("style", "stroke-width: 14;"); // Thicker to clear the ring
+                path.setAttribute("style", "stroke-width: 14;");
             } else {
                 path.setAttribute("stroke", style.color);
                 path.setAttribute("stroke-opacity", style.opacity);
                 path.setAttribute("style", "stroke-width: 6;");
             }
-    
+
             path.setAttribute("fill", "none");
             path.setAttribute("class", "price-segment");
             segs.appendChild(path);
         });
-    }
+    }        
 
     function refreshUI() {
         const now = new Date();
-        if (now.getHours() >= 16 && !hasTomorrowData()) {
-            fetchData();
-        }
+        if (now.getHours() >= 16 && !hasTomorrowData()) fetchData();
         renderSegments(); 
         updateClockUI();
     }
-
+    
     function setupInteractions() {
         const container = document.getElementById('clock-container');
         const svg = document.getElementById('clock-svg');
@@ -210,7 +189,6 @@
             const rect = svg.getBoundingClientRect();
             const clientX = (e.touches && e.touches[0]) ? e.touches[0].clientX : e.clientX;
             const clientY = (e.touches && e.touches[0]) ? e.touches[0].clientY : e.clientY;
-            
             if (clientX === undefined) return;
 
             const x = clientX - (rect.left + rect.width / 2);
@@ -219,44 +197,30 @@
             if (angle < 0) angle += 360;
 
             const targetHour = (angle / 360) * 24;
-            
-            // Interaction logic: also respect the 24h window
             const now = new Date();
-            const maxLook = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+            const cutoff = new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
             const rate = cachedAgile.find(r => {
                 const d = parseDate(r.valid_from);
                 const h = d.getHours() + (d.getMinutes() / 60);
-                return targetHour >= h && targetHour < h + 0.5 && d < maxLook && parseDate(r.valid_to) > now;
+                return targetHour >= h && targetHour < h + 0.5 && d < cutoff && parseDate(r.valid_to) > now;
             });
 
             if (rate) {
                 isInteracting = true;
                 if (revertTimeout) clearTimeout(revertTimeout);
-                
                 const d = parseDate(rate.valid_from);
                 const isTomorrow = d.getDate() !== now.getDate();
-                const timeStr = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
                 const style = getSegmentStyle(rate.value_inc_vat);
-                
-                document.getElementById('label-text').innerText = (isTomorrow ? "Tomorrow " : "@ ") + timeStr;
+                document.getElementById('label-text').innerText = (isTomorrow ? "Tomorrow " : "@ ") + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
                 document.getElementById('label-text').style.color = style.color;
                 updateDisplay(rate.value_inc_vat, style.color);
-            } else if (isInteracting) {
-                resetToLive();
             }
         };
 
         container.addEventListener('mousemove', handlePointer);
         container.addEventListener('touchstart', (e) => { if(e.cancelable) e.preventDefault(); handlePointer(e); }, {passive: false});
-        container.addEventListener('touchmove', (e) => { if(e.cancelable) e.preventDefault(); handlePointer(e); }, {passive: false});
-
-        const endInput = () => {
-            if (!isInteracting) return;
-            revertTimeout = setTimeout(resetToLive, 1200);
-        };
-
-        container.addEventListener('touchend', endInput);
+        container.addEventListener('touchend', () => { revertTimeout = setTimeout(resetToLive, 1200); });
         container.addEventListener('mouseleave', resetToLive);
     }
 
@@ -268,9 +232,8 @@
     }
 
     function updateDisplay(price, color) {
-        const statusEl = document.getElementById('status');
-        statusEl.innerText = `${price.toFixed(1)}p`;
-        statusEl.style.color = color;
+        document.getElementById('status').innerText = `${price.toFixed(1)}p`;
+        document.getElementById('status').style.color = color;
     }
 
     function updateClockUI() {
@@ -278,18 +241,14 @@
         const now = new Date();
         const rotation = (((now.getHours() * 60) + now.getMinutes()) / 1440) * 360;
         document.getElementById('now-pointer').setAttribute("transform", `rotate(${rotation} 120 120)`);
-
         const currentRate = cachedAgile.find(r => {
-            const start = parseDate(r.valid_from);
-            const end = parseDate(r.valid_to);
-            return now >= start && now < end;
+            const s = parseDate(r.valid_from);
+            const e = parseDate(r.valid_to);
+            return now >= s && now < e;
         });
-
-        if (currentRate) {
-            updateDisplay(currentRate.value_inc_vat, getSegmentStyle(currentRate.value_inc_vat).color);
-        }
+        if (currentRate) updateDisplay(currentRate.value_inc_vat, getSegmentStyle(currentRate.value_inc_vat).color);
     }
-
+    
     function describeArc(x, y, r, startA, endA) {
         const s = { x: x + r * Math.cos(endA * Math.PI / 180), y: y + r * Math.sin(endA * Math.PI / 180) };
         const e = { x: x + r * Math.cos(startA * Math.PI / 180), y: y + r * Math.sin(startA * Math.PI / 180) };
