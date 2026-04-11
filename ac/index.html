@@ -53,7 +53,7 @@
 </div>
 
 <script>
-    console.log('script starting');
+    console.log('Script Starting...');
     const urlParams = new URLSearchParams(window.location.search);
     const REGION = (urlParams.get('region') || 'A').toUpperCase();
     document.getElementById('region-badge').innerText = `Region ${REGION}`;
@@ -90,41 +90,31 @@
         }
     }
 
-    function hasTomorrowData() {
-        const tomorrow = new Date();
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        const tomorrowStr = tomorrow.toISOString().split('T')[0];
-        return cachedAgile.some(r => r.valid_from.startsWith(tomorrowStr));
-    }
-    
     async function fetchData() {
         try {
-            const now = new Date();
+            console.log("Fetching data...");
             const [tRes, aRes] = await Promise.all([fetch(TRACKER_API), fetch(AGILE_API)]);
             const tData = await tRes.json();
             const aData = await aRes.json();
     
+            // Tracker pricing logic
             trackerPrice = tData.results[0].value_inc_vat;
             document.getElementById('tracker-ref').innerText = `Tracker: ${trackerPrice.toFixed(2)}p`;
     
-            // SORTING: This is the most important step for .find() to work correctly
+            // CRITICAL FIX: Sort ASCENDING so 'Today' comes before 'Tomorrow'
             cachedAgile = aData.results.sort((a, b) => parseDate(a.valid_from) - parseDate(b.valid_from));
             
-            console.log("--- DATA FETCHED & SORTED ---");
-            console.log("Tracker Price:", trackerPrice);
-            console.log("First 3 records in cache:", cachedAgile.slice(0, 3));
-            
+            console.log("Data Sorted. Sample (First):", cachedAgile[0].valid_from);
+            console.log("Data Sorted. Sample (Last):", cachedAgile[cachedAgile.length-1].valid_from);
+
             renderSegments();
             updateClockUI();
         } catch (e) { console.error("Fetch Error:", e); }
     }
 
     function getSegmentStyle(price) {
-        // If price is near zero or negative, it should always be green/magenta
-        if (price < 0.0) return { color: price < 0 ? '#f0f' : '#00ff88', opacity: 1.0 };
+        if (price < 0) return { color: '#f0f', opacity: 1.0 };
         if (trackerPrice === null) return { color: '#444', opacity: 0.5 };
-        
-        // Compare against Tracker, but give a "green" pass to anything reasonable
         const isCheap = price <= trackerPrice;
         const delta = Math.abs(price - trackerPrice);
         const opacity = Math.min(1, 0.4 + (delta / 15)); 
@@ -137,75 +127,72 @@
         segs.innerHTML = '';
         const now = new Date();
         const cutoff = new Date(now.getTime() + (24 * 60 * 60 * 1000));
-    
-        // 1. Sort data by time so we can process it chronologically
-        const sortedData = [...cachedAgile].sort((a, b) => parseDate(a.valid_from) - parseDate(b.valid_from));
-    
-        // 2. Use a Map to ensure we only keep the FIRST (soonest) occurrence of any half-hour slot
-        const slotsToDraw = new Map();
-    
-        sortedData.forEach(r => {
+        const drawnSlots = new Set(); 
+
+        cachedAgile.forEach(r => {
             const start = parseDate(r.valid_from);
             const end = parseDate(r.valid_to);
-    
-            // Only consider blocks that haven't finished yet and are within the next 24h
+
             if (end > now && start < cutoff) {
-                const h = start.getHours() + (start.getMinutes() / 60);
-                // If we haven't added this specific time slot yet, add it
-                // Because we sorted by date, the 'today' slot will always be added first
-                if (!slotsToDraw.has(h)) {
-                    slotsToDraw.set(h, r);
-                }
+                const hourKey = start.getHours() + (start.getMinutes() / 60);
+                
+                // If we already drew this hour (today), skip the tomorrow version
+                if (drawnSlots.has(hourKey)) return;
+                drawnSlots.add(hourKey);
+
+                const startA = (hourKey / 24) * 360 - 90;
+                const endA = startA + (0.5 / 24) * 360; 
+
+                const style = getSegmentStyle(r.value_inc_vat);
+                const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                path.setAttribute("d", describeArc(120, 120, 85, startA + 0.5, endA - 0.5));
+                path.setAttribute("stroke", style.color);
+                path.setAttribute("stroke-opacity", style.opacity);
+                path.setAttribute("style", "stroke-width: 6;");
+                path.setAttribute("class", "price-segment");
+                path.setAttribute("fill", "none");
+                segs.appendChild(path);
             }
         });
-    
-        // 3. Draw only the filtered slots
-        slotsToDraw.forEach((r) => {
-            const start = parseDate(r.valid_from);
-            const h = start.getHours() + (start.getMinutes() / 60);
-            const startA = (h / 24) * 360 - 90;
-            const endA = startA + (0.5 / 24) * 360; 
-    
-            const style = getSegmentStyle(r.value_inc_vat);
-            const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-            path.setAttribute("d", describeArc(120, 120, 85, startA + 0.5, endA - 0.5));
-            path.setAttribute("stroke", style.color);
-            path.setAttribute("stroke-opacity", style.opacity);
-            path.setAttribute("style", "stroke-width: 6;");
-            path.setAttribute("class", "price-segment");
-            path.setAttribute("fill", "none");
-            segs.appendChild(path);
-        });
-    
-        // ... (Keep your existing PASS 2 "Black Gap" logic here)
-    }
 
-        // PASS 2: Draw the Black Gap LAST so it is on the top layer
-        const gapRecord = cachedAgile.find(r => parseDate(r.valid_from).getTime() === gapStart.getTime());
-        if (gapRecord) {
-            const start = parseDate(gapRecord.valid_from);
-            const h = start.getHours() + (start.getMinutes() / 60);
-            const startA = (h / 24) * 360 - 90;
-            const endA = startA + (0.5 / 24) * 360; 
+        // The Gap logic
+        const currentBlockStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), now.getMinutes() < 30 ? 0 : 30);
+        const gapStart = new Date(currentBlockStart.getTime() - (30 * 60 * 1000));
+        const h = gapStart.getHours() + (gapStart.getMinutes() / 60);
+        const startA = (h / 24) * 360 - 90;
+        const endA = startA + (0.5 / 24) * 360; 
 
-            const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-            path.setAttribute("d", describeArc(120, 120, 85, startA + 0.5, endA - 0.5));
-            path.setAttribute("stroke", "#000000"); // Pure Black
-            path.setAttribute("stroke-opacity", "1");
-            path.setAttribute("style", "stroke-width: 16;"); // Extra thick to hide colored tips
-            path.setAttribute("fill", "none");
-            path.setAttribute("class", "gap-segment");
-            segs.appendChild(path);
-            console.log("Black Gap Layered on top.");
-        }
+        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        path.setAttribute("d", describeArc(120, 120, 85, startA + 0.5, endA - 0.5));
+        path.setAttribute("stroke", "#000"); 
+        path.setAttribute("style", "stroke-width: 12;");
+        segs.appendChild(path);
     }
     
     function refreshUI() {
         renderSegments(); 
         updateClockUI();
-        if (new Date().getHours() >= 16 && !hasTomorrowData()) fetchData();
     }
     
+    function updateClockUI() {
+        if (isInteracting) return;
+        const now = new Date();
+        const rotation = (((now.getHours() * 60) + now.getMinutes()) / 1440) * 360;
+        document.getElementById('now-pointer').setAttribute("transform", `rotate(${rotation} 120 120)`);
+        
+        // Find the record where 'now' is between start and end
+        const currentRate = cachedAgile.find(r => {
+            const s = parseDate(r.valid_from);
+            const e = parseDate(r.valid_to);
+            return now >= s && now < e;
+        });
+
+        if (currentRate) {
+            console.log(`LIVE UPDATE: Price is ${currentRate.value_inc_vat}p for block ${currentRate.valid_from}`);
+            updateDisplay(currentRate.value_inc_vat, getSegmentStyle(currentRate.value_inc_vat).color);
+        }
+    }
+
     function setupInteractions() {
         const container = document.getElementById('clock-container');
         const svg = document.getElementById('clock-svg');
@@ -223,21 +210,15 @@
 
             const targetHour = (angle / 360) * 24;
             const now = new Date();
-            const targetTimeInMs = now.setHours(0,0,0,0) + (targetHour * 3600000);
-            const cutoff = new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
-            // Find the rate, prioritizing the most immediate one
-            // Ensure we look for the block that matches the hour AND is within the next 24 hours
-            const rate = cachedAgile.reduce((prev, curr) => {
-                const currTime = parseDate(curr.valid_from).getTime();
-                const prevTime = prev ? parseDate(prev.valid_from).getTime() : Infinity;
-                
-                const currDiff = Math.abs(currTime - targetTimeInMs);
-                const prevDiff = Math.abs(prevTime - targetTimeInMs);
-                
-                // We want the one matching the hour that is nearest to the current actual time
-                return currDiff < prevDiff ? curr : prev;
-            }, null);
+            // Find matching rate block for the hovered hour (preferring soonest)
+            const rate = cachedAgile.find(r => {
+                const d = parseDate(r.valid_from);
+                const h = d.getHours() + (d.getMinutes() / 60);
+                const isTargetHour = targetHour >= h && targetHour < h + 0.5;
+                // Ensure we look at blocks from roughly now onwards
+                return isTargetHour && d >= new Date(now.getTime() - 48 * 3600000);
+            });
 
             if (rate) {
                 isInteracting = true;
@@ -269,31 +250,6 @@
         document.getElementById('status').style.color = color;
     }
 
-    function updateClockUI() {
-        if (isInteracting) return;
-        const now = new Date();
-        const rotation = (((now.getHours() * 60) + now.getMinutes()) / 1440) * 360;
-        document.getElementById('now-pointer').setAttribute("transform", `rotate(${rotation} 120 120)`);
-        
-        // Debugging the "Live" selection
-        const currentRate = cachedAgile.find(r => {
-            const s = parseDate(r.valid_from);
-            const e = parseDate(r.valid_to);
-            return now >= s && now < e;
-        });
-    
-        console.group("Live UI Update");
-        console.log("Current System Time:", now.toISOString());
-        if (currentRate) {
-            console.log("Matched Rate Start:", currentRate.valid_from);
-            console.log("Matched Rate Price:", currentRate.value_inc_vat);
-            updateDisplay(currentRate.value_inc_vat, getSegmentStyle(currentRate.value_inc_vat).color);
-        } else {
-            console.warn("No rate found for current time!");
-        }
-        console.groupEnd();
-    }
-    
     function describeArc(x, y, r, startA, endA) {
         const s = { x: x + r * Math.cos(endA * Math.PI / 180), y: y + r * Math.sin(endA * Math.PI / 180) };
         const e = { x: x + r * Math.cos(startA * Math.PI / 180), y: y + r * Math.sin(startA * Math.PI / 180) };
