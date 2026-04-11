@@ -113,7 +113,7 @@
     }
 
     function getSegmentStyle(price) {
-        if (price < 0) return { color: '#f0f', opacity: 1.0 };
+        if (price < 0) return { color: '#00f', opacity: 1.0 };
         if (trackerPrice === null) return { color: '#444', opacity: 0.5 };
         const isCheap = price <= trackerPrice;
         const delta = Math.abs(price - trackerPrice);
