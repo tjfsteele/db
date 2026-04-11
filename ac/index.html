@@ -121,11 +121,16 @@
     }
 
     function getSegmentStyle(price) {
-        if (price < 0) return { color: '#f0f', opacity: 1.0 };
-        if (trackerPrice === null) return { color: '#000', opacity: 0 };
+        // If price is near zero or negative, it should always be green/magenta
+        if (price <= 1.0) return { color: price < 0 ? '#f0f' : '#00ff88', opacity: 1.0 };
+        
+        if (trackerPrice === null) return { color: '#444', opacity: 0.5 };
+        
+        // Compare against Tracker, but give a "green" pass to anything reasonable
+        const isCheap = price <= trackerPrice;
         const delta = Math.abs(price - trackerPrice);
-        const opacity = Math.min(1, 0.25 + (delta / 15)); 
-        const color = price <= trackerPrice ? '#00ff88' : '#ff4444';
+        const opacity = Math.min(1, 0.4 + (delta / 15)); 
+        const color = isCheap ? '#00ff88' : '#ff4444';
         return { color, opacity };
     }
     
@@ -133,7 +138,6 @@
         const segs = document.getElementById('segments');
         segs.innerHTML = '';
         const now = new Date();
-        
         const currentBlockStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), now.getMinutes() < 30 ? 0 : 30);
         const gapStart = new Date(currentBlockStart.getTime() - (30 * 60 * 1000));
         const cutoff = new Date(now.getTime() + (24 * 60 * 60 * 1000));
@@ -206,18 +210,21 @@
 
             const targetHour = (angle / 360) * 24;
             const now = new Date();
+            const targetTimeInMs = now.setHours(0,0,0,0) + (targetHour * 3600000);
             const cutoff = new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
             // Find the rate, prioritizing the most immediate one
             // Ensure we look for the block that matches the hour AND is within the next 24 hours
-            const rate = sortedData.find(r => {
-                const d = parseDate(r.valid_from);
-                const h = d.getHours() + (d.getMinutes() / 60);
-                const isTargetTime = targetHour >= h && targetHour < h + 0.5;
+            const rate = cachedAgile.reduce((prev, curr) => {
+                const currTime = parseDate(curr.valid_from).getTime();
+                const prevTime = prev ? parseDate(prev.valid_from).getTime() : Infinity;
                 
-                // Strict date check: must be after 'now' and before '24h from now'
-                return isTargetTime && d >= new Date(now.getTime() - 30*60000) && d < cutoff;
-            });
+                const currDiff = Math.abs(currTime - targetTimeInMs);
+                const prevDiff = Math.abs(prevTime - targetTimeInMs);
+                
+                // We want the one matching the hour that is nearest to the current actual time
+                return currDiff < prevDiff ? curr : prev;
+            }, null);
 
             if (rate) {
                 isInteracting = true;
