@@ -104,13 +104,16 @@
             const tData = await tRes.json();
             const aData = await aRes.json();
     
-            trackerPrice = tData.results[0].value_inc_vat; // Simplified for brevity
+            trackerPrice = tData.results[0].value_inc_vat;
             document.getElementById('tracker-ref').innerText = `Tracker: ${trackerPrice.toFixed(2)}p`;
     
-            // CRITICAL FIX: Sort by date ASCENDING immediately
+            // SORTING: This is the most important step for .find() to work correctly
             cachedAgile = aData.results.sort((a, b) => parseDate(a.valid_from) - parseDate(b.valid_from));
             
-            console.log(`Fetched and sorted ${cachedAgile.length} Agile rates.`);
+            console.log("--- DATA FETCHED & SORTED ---");
+            console.log("Tracker Price:", trackerPrice);
+            console.log("First 3 records in cache:", cachedAgile.slice(0, 3));
+            
             renderSegments();
             updateClockUI();
         } catch (e) { console.error("Fetch Error:", e); }
@@ -272,12 +275,23 @@
         const rotation = (((now.getHours() * 60) + now.getMinutes()) / 1440) * 360;
         document.getElementById('now-pointer').setAttribute("transform", `rotate(${rotation} 120 120)`);
         
+        // Debugging the "Live" selection
         const currentRate = cachedAgile.find(r => {
             const s = parseDate(r.valid_from);
             const e = parseDate(r.valid_to);
             return now >= s && now < e;
         });
-        if (currentRate) updateDisplay(currentRate.value_inc_vat, getSegmentStyle(currentRate.value_inc_vat).color);
+    
+        console.group("Live UI Update");
+        console.log("Current System Time:", now.toISOString());
+        if (currentRate) {
+            console.log("Matched Rate Start:", currentRate.valid_from);
+            console.log("Matched Rate Price:", currentRate.value_inc_vat);
+            updateDisplay(currentRate.value_inc_vat, getSegmentStyle(currentRate.value_inc_vat).color);
+        } else {
+            console.warn("No rate found for current time!");
+        }
+        console.groupEnd();
     }
     
     function describeArc(x, y, r, startA, endA) {
