@@ -209,13 +209,15 @@
             const cutoff = new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
             // Find the rate, prioritizing the most immediate one
-            const rate = [...cachedAgile]
-                .sort((a, b) => parseDate(a.valid_from) - parseDate(b.valid_from))
-                .find(r => {
-                    const d = parseDate(r.valid_from);
-                    const h = d.getHours() + (d.getMinutes() / 60);
-                    return targetHour >= h && targetHour < h + 0.5 && d < cutoff && parseDate(r.valid_to) > now;
-                });
+            // Ensure we look for the block that matches the hour AND is within the next 24 hours
+            const rate = sortedData.find(r => {
+                const d = parseDate(r.valid_from);
+                const h = d.getHours() + (d.getMinutes() / 60);
+                const isTargetTime = targetHour >= h && targetHour < h + 0.5;
+                
+                // Strict date check: must be after 'now' and before '24h from now'
+                return isTargetTime && d >= new Date(now.getTime() - 30*60000) && d < cutoff;
+            });
 
             if (rate) {
                 isInteracting = true;
