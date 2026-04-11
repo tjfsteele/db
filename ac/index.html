@@ -137,34 +137,49 @@
         const segs = document.getElementById('segments');
         segs.innerHTML = '';
         const now = new Date();
-        const currentBlockStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), now.getMinutes() < 30 ? 0 : 30);
-        const gapStart = new Date(currentBlockStart.getTime() - (30 * 60 * 1000));
         const cutoff = new Date(now.getTime() + (24 * 60 * 60 * 1000));
-
+    
+        // 1. Sort data by time so we can process it chronologically
         const sortedData = [...cachedAgile].sort((a, b) => parseDate(a.valid_from) - parseDate(b.valid_from));
-
-        // PASS 1: Draw all colored price segments first
+    
+        // 2. Use a Map to ensure we only keep the FIRST (soonest) occurrence of any half-hour slot
+        const slotsToDraw = new Map();
+    
         sortedData.forEach(r => {
             const start = parseDate(r.valid_from);
             const end = parseDate(r.valid_to);
-
-            // Only draw if it's in our 24h window
+    
+            // Only consider blocks that haven't finished yet and are within the next 24h
             if (end > now && start < cutoff) {
                 const h = start.getHours() + (start.getMinutes() / 60);
-                const startA = (h / 24) * 360 - 90;
-                const endA = startA + (0.5 / 24) * 360; 
-
-                const style = getSegmentStyle(r.value_inc_vat);
-                const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-                path.setAttribute("d", describeArc(120, 120, 85, startA + 0.5, endA - 0.5));
-                path.setAttribute("stroke", style.color);
-                path.setAttribute("stroke-opacity", style.opacity);
-                path.setAttribute("style", "stroke-width: 6;");
-                path.setAttribute("class", "price-segment");
-                path.setAttribute("fill", "none");
-                segs.appendChild(path);
+                // If we haven't added this specific time slot yet, add it
+                // Because we sorted by date, the 'today' slot will always be added first
+                if (!slotsToDraw.has(h)) {
+                    slotsToDraw.set(h, r);
+                }
             }
         });
+    
+        // 3. Draw only the filtered slots
+        slotsToDraw.forEach((r) => {
+            const start = parseDate(r.valid_from);
+            const h = start.getHours() + (start.getMinutes() / 60);
+            const startA = (h / 24) * 360 - 90;
+            const endA = startA + (0.5 / 24) * 360; 
+    
+            const style = getSegmentStyle(r.value_inc_vat);
+            const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+            path.setAttribute("d", describeArc(120, 120, 85, startA + 0.5, endA - 0.5));
+            path.setAttribute("stroke", style.color);
+            path.setAttribute("stroke-opacity", style.opacity);
+            path.setAttribute("style", "stroke-width: 6;");
+            path.setAttribute("class", "price-segment");
+            path.setAttribute("fill", "none");
+            segs.appendChild(path);
+        });
+    
+        // ... (Keep your existing PASS 2 "Black Gap" logic here)
+    }
 
         // PASS 2: Draw the Black Gap LAST so it is on the top layer
         const gapRecord = cachedAgile.find(r => parseDate(r.valid_from).getTime() === gapStart.getTime());
