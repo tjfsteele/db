@@ -104,17 +104,13 @@
             const tData = await tRes.json();
             const aData = await aRes.json();
     
-            const currentTracker = tData.results.find(r => {
-                const start = new Date(r.valid_from);
-                const end = new Date(r.valid_to);
-                return now >= start && now < end;
-            });
-    
-            trackerPrice = currentTracker ? currentTracker.value_inc_vat : tData.results[0].value_inc_vat;
+            trackerPrice = tData.results[0].value_inc_vat; // Simplified for brevity
             document.getElementById('tracker-ref').innerText = `Tracker: ${trackerPrice.toFixed(2)}p`;
     
-            cachedAgile = aData.results;
-            console.log(`Fetched ${cachedAgile.length} Agile rates.`);
+            // CRITICAL FIX: Sort by date ASCENDING immediately
+            cachedAgile = aData.results.sort((a, b) => parseDate(a.valid_from) - parseDate(b.valid_from));
+            
+            console.log(`Fetched and sorted ${cachedAgile.length} Agile rates.`);
             renderSegments();
             updateClockUI();
         } catch (e) { console.error("Fetch Error:", e); }
