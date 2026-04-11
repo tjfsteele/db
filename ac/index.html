@@ -122,8 +122,7 @@
 
     function getSegmentStyle(price) {
         // If price is near zero or negative, it should always be green/magenta
-        if (price <= 1.0) return { color: price < 0 ? '#f0f' : '#00ff88', opacity: 1.0 };
-        
+        if (price < 0.0) return { color: price < 0 ? '#f0f' : '#00ff88', opacity: 1.0 };
         if (trackerPrice === null) return { color: '#444', opacity: 0.5 };
         
         // Compare against Tracker, but give a "green" pass to anything reasonable
