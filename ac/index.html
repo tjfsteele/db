@@ -211,13 +211,18 @@
             const targetHour = (angle / 360) * 24;
             const now = new Date();
 
-            // Find matching rate block for the hovered hour (preferring soonest)
+            // Find matching rate block for the hovered hour
             const rate = cachedAgile.find(r => {
                 const d = parseDate(r.valid_from);
                 const h = d.getHours() + (d.getMinutes() / 60);
                 const isTargetHour = targetHour >= h && targetHour < h + 0.5;
-                // Ensure we look at blocks from roughly now onwards
-                return isTargetHour && d >= new Date(now.getTime() - 48 * 3600000);
+            
+                // KEY FIX: Only show blocks that are either currently active 
+                // or occur in the future. This prevents "jumping" to 2am 
+                // from 20 hours ago.
+                const isRecentOrFuture = d >= new Date(now.getTime() - 30 * 60000); 
+                
+                return isTargetHour && isRecentOrFuture;
             });
 
             if (rate) {
