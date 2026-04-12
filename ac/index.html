@@ -266,6 +266,14 @@
         isInteracting = false;
         document.getElementById('label-text').innerText = "Agile Pricing";
         document.getElementById('label-text').style.color = "#333";
+        
+        // Restore the tracker display to today's rate
+        const todayKey = new Date().toISOString().split('T')[0];
+        const displayRate = trackerRates[todayKey] || Object.values(trackerRates)[0];
+        if (displayRate) {
+            document.getElementById('tracker-ref').innerText = `Tracker: ${displayRate.toFixed(2)}p`;
+        }
+        
         updateClockUI();
     }
 
