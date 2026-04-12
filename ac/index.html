@@ -115,12 +115,16 @@
         } catch (e) { console.error("Fetch Error:", e); }
     }
 
-    function getSegmentStyle(price) {
-        const dateStr = date.toISOString().split('T')[0];
-        const comparisonRate = trackerRates[dateStr] || trackerRates['today']; 
-
-        const isCheap = price <= comparisonRate;
-        const delta = Math.abs(price - comparisonRate);
+    function getSegmentStyle(price, dateStr) {
+        if (price < 0) return { color: '#00f', opacity: 1.0 };
+        
+        // Get the tracker rate for this specific day, fallback to today if missing
+        const referencePrice = trackerRates[dateStr] || Object.values(trackerRates)[0];
+        
+        if (!referencePrice) return { color: '#444', opacity: 0.5 };
+    
+        const isCheap = price <= referencePrice;
+        const delta = Math.abs(price - referencePrice);
         const opacity = Math.min(1, 0.4 + (delta / 15)); 
         const color = isCheap ? '#00ff88' : '#ff4444';
         return { color, opacity };
