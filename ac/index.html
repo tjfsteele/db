@@ -236,11 +236,22 @@
             if (rate) {
                 isInteracting = true;
                 if (revertTimeout) clearTimeout(revertTimeout);
+                
                 const d = parseDate(rate.valid_from);
+                const dateStr = rate.valid_from.split('T')[0];
                 const isTomorrow = d.getDate() !== now.getDate();
-                const style = getSegmentStyle(rate.value_inc_vat);
+                
+                // Get the correct style and the tracker rate for THIS specific date
+                const style = getSegmentStyle(rate.value_inc_vat, dateStr);
+                const activeTracker = trackerRates[dateStr] || Object.values(trackerRates)[0];
+            
+                // Update the label (e.g., "Tomorrow 02:00")
                 document.getElementById('label-text').innerText = (isTomorrow ? "Tomorrow " : "@ ") + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
                 document.getElementById('label-text').style.color = style.color;
+                
+                // NEW: Update the Tracker reference to match the hovered date
+                document.getElementById('tracker-ref').innerText = `Tracker: ${activeTracker.toFixed(2)}p`;
+                
                 updateDisplay(rate.value_inc_vat, style.color);
             }
         };
