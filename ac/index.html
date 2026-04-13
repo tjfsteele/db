@@ -72,7 +72,12 @@
         drawDial();
         await fetchData(); 
         setupInteractions();
+        
+        // Refresh the UI every 30 seconds (for the "now" pointer)
         setInterval(refreshUI, 30000); 
+        
+        // Fetch fresh data from Octopus every 30 minutes
+        setInterval(fetchData, 1800000); 
     }
 
     function drawDial() {
