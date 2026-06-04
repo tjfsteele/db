@@ -205,9 +205,8 @@
     <button type="button" onclick="calculateOvers()">Calculate Overs to Remove</button>
 
     <div class="result-box" id="resultBox">
-        <div class="result-title">Calculation Result</div>
         <div id="resultOutput" class="result-main"></div>
-        <div id="detailsOutput" class="result-details"></div>
+        <!--<div id="detailsOutput" class="result-details"></div>-->
     </div>
 </div>
 
@@ -345,7 +344,7 @@
             let uninterruptedOversLeft = (innings === "1") ? (agreedOversPerSide * 2) - oversBowledCeil : agreedOversPerSide - oversBowledCeil;
             let oversLost = Math.max(0, uninterruptedOversLeft - possibleOversRemaining);
 
-            document.getElementById("resultOutput").innerText = `👉 OVERS TO REMOVE: ${oversLost}`;
+            document.getElementById("resultOutput").innerText = `OVERS TO REMOVE: ${oversLost}`;
             document.getElementById("detailsOutput").innerHTML = `
                 Available Playing Time: <strong>${availableMins} mins</strong><br>
                 Max physical overs fitting in time: <strong>${possibleOversRemaining}</strong>
@@ -353,7 +352,7 @@
             document.getElementById("resultBox").style.display = "block";
 
         } catch (e) {
-            alert("Please double check that all inputs are filled in correctly.");
+            alert("Please verify that all inputs are filled in correctly.");
         }
     }
 
