@@ -73,6 +73,17 @@
             margin-bottom: 15px;
         }
 
+        /* Add this new class below .form-group */
+        .form-row {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        .form-row .form-group {
+            flex: 1;
+            margin-bottom: 0;
+        }
+
         label {
             display: block;
             font-size: 0.9rem;
@@ -159,16 +170,19 @@
         </select>
     </div>
 
-    <div class="form-group">
-        <label for="oversSide">Overs Per Side</label>
-        <input type="number" id="oversSide" value="45">
-    </div>
+    <div class="form-row">
+        <div class="form-group">
+            <label for="oversSide">Overs Per Side</label>
+            <input type="number" id="oversSide" value="45">
+        </div>
 
-    <div class="form-group">
-        <select id="innings" onchange="toggleTeaInput()">
-            <option value="1" selected>1st Innings</option>
-            <option value="2">2nd Innings</option>
-        </select>
+        <div class="form-group">
+            <label for="innings">Innings</label>
+            <select id="innings" onchange="toggleTeaInput()">
+                <option value="1" selected>1st Innings</option>
+                <option value="2">2nd Innings</option>
+            </select>
+        </div>
     </div>
 
     <div class="form-group">
