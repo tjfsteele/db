@@ -348,7 +348,7 @@
                     Did you mean to select "2nd Innings"?
                 </span>`;
             }
-            document.getElementById("resultOutput").innerText = `OVERS TO REMOVE: ${oversLost}`;
+            document.getElementById("resultOutput").innerHTML = `OVERS TO REMOVE: ${oversLost}${warningText}`;
             document.getElementById("detailsOutput").innerHTML = `
                 Available Playing Time: <strong>${availableMins} mins</strong><br>
                 Max physical overs fitting in time: <strong>${possibleOversRemaining}</strong>
