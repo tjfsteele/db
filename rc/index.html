@@ -342,7 +342,12 @@
 
             let uninterruptedOversLeft = (innings === "1") ? (agreedOversPerSide * 2) - oversBowledCeil : agreedOversPerSide - oversBowledCeil;
             let oversLost = Math.max(0, uninterruptedOversLeft - possibleOversRemaining);
-
+            let warningText = "";
+            if (innings === "1" && oversLost > agreedOversPerSide) {
+                warningText = `<br><span style="color: #d93025; font-size: 0.9rem; font-weight: bold;">
+                    Did you mean to select "2nd Innings"?
+                </span>`;
+            }
             document.getElementById("resultOutput").innerText = `OVERS TO REMOVE: ${oversLost}`;
             document.getElementById("detailsOutput").innerHTML = `
                 Available Playing Time: <strong>${availableMins} mins</strong><br>
