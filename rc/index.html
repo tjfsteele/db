@@ -73,7 +73,6 @@
             margin-bottom: 15px;
         }
 
-        /* Add this new class below .form-group */
         .form-row {
             display: flex;
             gap: 15px;
@@ -191,8 +190,8 @@
     </div>
 
     <div class="form-group">
-        <label for="currentOver">Over at Interruption (e.g., 16.2)</label>
-        <input type="number" step="0.1" id="currentOver" value="0.1" required>
+        <label for="oversRemaining">Overs Remaining in Innings (e.g., 29.4)</label>
+        <input type="number" step="0.1" id="oversRemaining" value="45.0" required>
     </div>
 
     <div class="form-group">
@@ -221,7 +220,6 @@
 </div>
 
 <script>
-    // Configurations: [default_finish, overs_per_hour, default_tea, direct_url, link_label_text]
     const configs = {
         "O50-1": [
             "19:30", 
@@ -268,7 +266,7 @@
     }
 
     function setDayBasedDefault() {
-        const today = new Date().getDay(); // 0 = Sunday, 3 = Wednesday
+        const today = new Date().getDay();
         const dropdown = document.getElementById("matchType");
         
         if (today === 3) {
@@ -347,18 +345,26 @@
             const minsPerOver = 60.0 / ratePerHour;
             const agreedOversPerSide = parseInt(document.getElementById("oversSide").value, 10);
 
+            // Calculate max physical overs that can physically fit into the time window
             const possibleOversRemaining = Math.floor(availableMins / minsPerOver);
-            const totalBallsBowled = overToBalls(document.getElementById("currentOver").value);
-            const oversBowledCeil = Math.floor(totalBallsBowled / 6) + (totalBallsBowled % 6 > 0 ? 1 : 0);
+            
+            // Get the absolute number of overs scheduled to be bowled from this point onward
+            const totalRemainingBalls = overToBalls(document.getElementById("oversRemaining").value);
+            const scheduledOversRemainingCeil = Math.floor(totalRemainingBalls / 6) + (totalRemainingBalls % 6 > 0 ? 1 : 0);
 
-            let uninterruptedOversLeft = (innings === "1") ? (agreedOversPerSide * 2) - oversBowledCeil : agreedOversPerSide - oversBowledCeil;
-            let oversLost = Math.max(0, uninterruptedOversLeft - possibleOversRemaining);
+            // Total remaining structured match overs (if 1st innings, includes the 2nd innings too)
+            let totalMatchOversLeft = (innings === "1") ? scheduledOversRemainingCeil + agreedOversPerSide : scheduledOversRemainingCeil;
+            
+            // Deduct what we can physically manage from what we have left scheduled
+            let oversLost = Math.max(0, totalMatchOversLeft - possibleOversRemaining);
+            
             let warningText = "";
-            if (innings === "1" && oversLost > agreedOversPerSide) {
+            if (innings === "1" && oversLost > scheduledOversRemainingCeil) {
                 warningText = `<br><span style="color: #d93025; font-size: 0.9rem; font-weight: bold;">
-                    Did you mean to select "2nd Innings"?
+                    Did you mean to select "2nd Innings"? Lost overs exceed remaining 1st innings overs.
                 </span>`;
             }
+
             document.getElementById("resultOutput").innerHTML = `OVERS TO REMOVE: ${oversLost}${warningText}`;
             document.getElementById("detailsOutput").innerHTML = `
                 Available Playing Time: <strong>${availableMins} mins</strong><br>
@@ -367,7 +373,7 @@
             document.getElementById("resultBox").style.display = "block";
 
         } catch (e) {
-            alert(e); <!--"Please verify that all inputs are filled in correctly.");-->
+            alert("Please verify that all inputs are filled in correctly.");
         }
     }
 
