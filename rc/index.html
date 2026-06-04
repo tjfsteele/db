@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Seniors Rain Calculator</title>
+    <style>
+        :root {
+            --bg-color: #f4f6f9;
+            --card-bg: #ffffff;
+            --text-color: #333333;
+            --primary-color: #1a73e8;
+            --primary-hover: #1557b0;
+            --border-color: #dadce0;
+            --accent-bg: #e8f0fe;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            padding: 15px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            background: var(--card-bg);
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            width: 100%;
+            max-width: 480px;
+        }
+
+        h2 {
+            text-align: center;
+            margin-bottom: 15px;
+            color: #111;
+            font-size: 1.4rem;
+        }
+
+        .info-text {
+            background-color: #f8f9fa;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 12px 15px;
+            font-size: 0.9rem;
+            line-height: 1.4;
+            color: #555;
+            margin-bottom: 25px;
+        }
+
+        .info-text a {
+            color: var(--primary-color);
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        .info-text a:hover {
+            text-decoration: underline;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-bottom: 5px;
+            color: #555;
+        }
+
+        select, input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 1rem;
+            background-color: #fff;
+            color: var(--text-color);
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        select:focus, input:focus {
+            border-color: var(--primary-color);
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 10px;
+            transition: background-color 0.2s;
+        }
+
+        button:hover {
+            background-color: var(--primary-hover);
+        }
+
+        .result-box {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: var(--accent-bg);
+            border-radius: 8px;
+            border-left: 5px solid var(--primary-color);
+            display: none;
+        }
+
+        .result-title {
+            font-weight: bold;
+            font-size: 1.1rem;
+            margin-bottom: 5px;
+            color: var(--primary-color);
+        }
+
+        .result-main {
+            font-size: 1.3rem;
+            font-weight: 800;
+            margin-top: 8px;
+            color: #000;
+        }
+        
+        .result-details {
+            font-size: 0.85rem;
+            color: #666;
+            margin-top: 5px;
+            line-height: 1.4;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Seniors Rain Calculator</h2>
+
+    <div class="info-text">
+        <a id="regLink" href="#" target="_blank">Loading tournament regulations...</a>
+    </div>
+    
+    <div class="form-group">
+        <label for="matchType">Match Type</label>
+        <select id="matchType" onchange="updateDefaults()">
+            <option value="O50-1">O50-1 (15 ov/hr)</option>
+            <option value="O50-2">O50-2 (18 ov/hr)</option>
+            <option value="O60/70">O60/70 (16 ov/hr)</option>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label for="oversSide">Overs Per Side (Agreed Match Length)</label>
+        <input type="number" id="oversSide" value="45">
+    </div>
+
+    <div class="form-group">
+        <label for="innings">Current Innings</label>
+        <select id="innings" onchange="toggleTeaInput()">
+            <option value="1" selected>1st Innings</option>
+            <option value="2">2nd Innings</option>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label for="restart">Restart Time (HH:MM)</label>
+        <input type="time" id="restart" required>
+    </div>
+
+    <div class="form-group">
+        <label for="currentOver">Current Over at Interruption (e.g., 16.2)</label>
+        <input type="number" step="0.1" id="currentOver" value="0.0" required>
+    </div>
+
+    <div class="form-group">
+        <label for="finish">Agreed Finish Time (HH:MM)</label>
+        <input type="time" id="finish" value="19:30">
+    </div>
+
+    <div class="form-group">
+        <label for="rate">Overs Per Hour Rate</label>
+        <input type="number" id="rate" value="15">
+    </div>
+
+    <div class="form-group" id="teaGroup">
+        <label for="tea">Tea Interval (minutes)</label>
+        <input type="number" id="tea" value="20">
+    </div>
+
+    <button type="button" onclick="calculateOvers()">Calculate Overs to Remove</button>
+
+    <div class="result-box" id="resultBox">
+        <div class="result-title">Calculation Result</div>
+        <div id="resultOutput" class="result-main"></div>
+        <div id="detailsOutput" class="result-details"></div>
+    </div>
+</div>
+
+<script>
+    // Configurations: [default_finish, overs_per_hour, default_tea, direct_url, link_label_text]
+    const configs = {
+        "O50-1": [
+            "19:30", 
+            15, 
+            20, 
+            "https://drive.google.com/file/d/14jwG3qbzbXbRdNMDjuZSIu1oX4rmTOF3/view?usp=drive_link", 
+            "Over 50 1st XI Playing Regulations 2026"
+        ],
+        "O50-2": [
+            "19:30", 
+            18, 
+            20, 
+            "https://drive.google.com/file/d/16-QMWDUQjvNOby_CATWCqULhZK4BrL_H/view?usp=drive_link", 
+            "Over 50 2nd XI Playing Regulations 2026"
+        ],
+        "O60/70": [
+            "20:00", 
+            16, 
+            30, 
+            "https://drive.google.com/file/d/1Btd1ul6t0Khupzq3oD6LMu4wnLYxakbU/view?usp=drive_link", 
+            "Over 60/70 Playing Regulations 2026"
+        ]
+    };
+
+    function getRoundedCurrentTime() {
+        const now = new Date();
+        let hours = now.getHours();
+        let minutes = now.getMinutes();
+        
+        const remainder = minutes % 5;
+        if (remainder !== 0) {
+            minutes += (5 - remainder);
+        }
+        
+        if (minutes === 60) {
+            minutes = 0;
+            hours += 1;
+        }
+        if (hours === 24) {
+            hours = 0;
+        }
+        
+        return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+    }
+
+    function setDayBasedDefault() {
+        const today = new Date().getDay(); // 0 = Sunday, 3 = Wednesday
+        const dropdown = document.getElementById("matchType");
+        
+        if (today === 3) {
+            dropdown.value = "O50-2";
+        } else {
+            dropdown.value = "O60/70";
+        }
+    }
+
+    function updateDefaults() {
+        const type = document.getElementById("matchType").value;
+        const config = configs[type];
+        
+        document.getElementById("finish").value = config[0];
+        document.getElementById("rate").value = config[1];
+        document.getElementById("tea").value = config[2];
+
+        const linkElement = document.getElementById("regLink");
+        linkElement.href = config[3];
+        linkElement.innerText = config[4];
+        
+        if (type === "O50-1" && config[3] === "PASTE_YOUR_LINK_HERE") {
+            linkElement.removeAttribute("href");
+            linkElement.style.color = "#555";
+            linkElement.style.textDecoration = "none";
+            linkElement.style.cursor = "default";
+        } else {
+            linkElement.style.color = "var(--primary-color)";
+            linkElement.style.textDecoration = "";
+            linkElement.style.cursor = "pointer";
+        }
+    }
+
+    function toggleTeaInput() {
+        const innings = document.getElementById("innings").value;
+        const teaGroup = document.getElementById("teaGroup");
+        teaGroup.style.display = (innings === "2") ? "none" : "block";
+    }
+
+    function overToBalls(overStr) {
+        if (!overStr) return 0;
+        if (overStr.includes('.')) {
+            const parts = overStr.split('.');
+            return (parseInt(parts[0], 10) || 0) * 6 + (parseInt(parts[1], 10) || 0);
+        }
+        return (parseInt(overStr, 10) || 0) * 6;
+    }
+
+    function calculateOvers() {
+        try {
+            const restartStr = document.getElementById("restart").value;
+            const finishStr = document.getElementById("finish").value;
+            
+            if (!restartStr || !finishStr) {
+                alert("Please fill in both Restart and Finish times.");
+                return;
+            }
+
+            const [rH, rM] = restartStr.split(':').map(Number);
+            let [fH, fM] = finishStr.split(':').map(Number);
+
+            let availableMins = (fH * 60 + fM) - (rH * 60 + rM);
+            if (availableMins <= 0) availableMins += 24 * 60;
+
+            const innings = document.getElementById("innings").value;
+            if (innings === "1") {
+                availableMins -= parseFloat(document.getElementById("tea").value) || 0;
+            }
+
+            if (availableMins <= 0) {
+                alert("Error: No playing time left after subtracting variables.");
+                return;
+            }
+
+            const ratePerHour = parseFloat(document.getElementById("rate").value);
+            const minsPerOver = 60.0 / ratePerHour;
+            const agreedOversPerSide = parseInt(document.getElementById("oversSide").value, 10);
+
+            const possibleOversRemaining = Math.floor(availableMins / minsPerOver);
+            const totalBallsBowled = overToBalls(document.getElementById("currentOver").value);
+            const oversBowledCeil = Math.floor(totalBallsBowled / 6) + (totalBallsBowled % 6 > 0 ? 1 : 0);
+
+            let uninterruptedOversLeft = (innings === "1") ? (agreedOversPerSide * 2) - oversBowledCeil : agreedOversPerSide - oversBowledCeil;
+            let oversLost = Math.max(0, uninterruptedOversLeft - possibleOversRemaining);
+
+            document.getElementById("resultOutput").innerText = `👉 OVERS TO REMOVE: ${oversLost}`;
+            document.getElementById("detailsOutput").innerHTML = `
+                Available Playing Time: <strong>${availableMins} mins</strong><br>
+                Max physical overs fitting in time: <strong>${possibleOversRemaining}</strong>
+            `;
+            document.getElementById("resultBox").style.display = "block";
+
+        } catch (e) {
+            alert("Please double check that all inputs are filled in correctly.");
+        }
+    }
+
+    function initApp() {
+        setDayBasedDefault();
+        updateDefaults();
+        toggleTeaInput();
+        document.getElementById("restart").value = getRoundedCurrentTime();
+    }
+
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", initApp);
+    } else {
+        initApp();
+    }
+</script>
+</body>
+</html>
