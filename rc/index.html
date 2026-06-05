@@ -164,11 +164,21 @@
     <div class="form-group">
         <label for="matchType">Match Type</label>
         <select id="matchType" onchange="updateDefaults()">
-            <!-- Options dynamically built depending on day of week -->
+            <optgroup label="Saturday Leagues">
+                <option value="Div1Red">Division 1 Red Ball</option>
+                <option value="Div1Pink">Division 1 Pink Ball</option>
+                <option value="Div2">Division 2</option>
+                <option value="Div3">Division 3</option>
+            </optgroup>
+            <optgroup label="Seniors Midweek & Sunday">
+                <option value="O50-1">Over 50s 1st XI</option>
+                <option value="O50-2">Over 50s 2nd XI</option>
+                <option value="O60/70">Over 60s/70s</option>
+            </optgroup>
         </select>
     </div>
 
-    <!-- Standard Parameters Mode -->
+    <!-- Standard Parameters Input Block -->
     <div id="standardInputs">
         <div class="form-row">
             <div class="form-group">
@@ -206,7 +216,7 @@
         </div>
     </div>
 
-    <!-- Saturday New Rules Mode -->
+    <!-- Saturday Calculations Input Block -->
     <div id="saturdayInputs" style="display: none;">
         <div class="form-row">
             <div class="form-group">
@@ -243,23 +253,20 @@
 </div>
 
 <script>
-    // Weekday Configurations
+    // Traditional rules parameters
     const weekdayConfigs = {
         "O50-1": ["19:30", 15, 20, "https://drive.google.com/file/d/14jwG3qbzbXbRdNMDjuZSIu1oX4rmTOF3/view?usp=drive_link", "Over 50 1st XI Playing Regulations 2026"],
         "O50-2": ["19:30", 18, 20, "https://drive.google.com/file/d/16-QMWDUQjvNOby_CATWCqULhZK4BrL_H/view?usp=drive_link", "Over 50 2nd XI Playing Regulations 2026"],
         "O60/70": ["20:00", 16, 30, "https://drive.google.com/file/d/1Btd1ul6t0Khupzq3oD6LMu4wnLYxakbU/view?usp=drive_link", "Over 60/70 Playing Regulations 2026"]
     };
 
-    // Saturday Configurations 
+    // Saturday rules parameters
     const saturdayConfigs = {
-        "Div1Red": { label: "Division 1 Red Ball", defaultOvers: 110, hideInnings: true },
-        "Div1Pink": { label: "Division 1 Pink Ball", defaultOvers: 50, hideInnings: false },
-        "Div2": { label: "Division 2", defaultOvers: 50, hideInnings: false },
-        "Div3": { label: "Division 3", defaultOvers: 45, hideInnings: false }
+        "Div1Red": { defaultOvers: 110, hideInnings: true },
+        "Div1Pink": { defaultOvers: 50, hideInnings: false },
+        "Div2": { defaultOvers: 50, hideInnings: false },
+        "Div3": { defaultOvers: 45, hideInnings: false }
     };
-
-    // Toggle this to test Saturday UI manually if needed (e.g., true/false)
-    const isSaturday = (new Date().getDay() === 6);
 
     function getRoundedCurrentTime() {
         const now = new Date();
@@ -274,42 +281,32 @@
         return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
     }
 
-    function setupMatchTypeDropdown() {
+    function setInitialDefaultMatch() {
+        const today = new Date().getDay();
         const dropdown = document.getElementById("matchType");
-        dropdown.innerHTML = "";
 
-        if (isSaturday) {
-            // Saturday Options
-            for (const [key, config] of Object.entries(saturdayConfigs)) {
-                let opt = document.createElement("option");
-                opt.value = key;
-                opt.textContent = config.label;
-                dropdown.appendChild(opt);
-            }
-            document.getElementById("standardInputs").style.display = "none";
-            document.getElementById("saturdayInputs").style.display = "block";
-            document.getElementById("infoBox").style.display = "none"; // Clear default info links for Saturdays
+        if (today === 6) {
+            // Saturday defaults to Division 2
+            dropdown.value = "Div2";
+        } else if (today === 3) {
+            // Wednesday defaults to O50 2nd XI
+            dropdown.value = "O50-2";
         } else {
-            // Weekday Options
-            for (const [key, config] of Object.entries(weekdayConfigs)) {
-                let opt = document.createElement("option");
-                opt.value = key;
-                opt.textContent = config[4].split(" Playing")[0]; // Cleaner name
-                dropdown.appendChild(opt);
-            }
-            document.getElementById("standardInputs").style.display = "block";
-            document.getElementById("saturdayInputs").style.display = "none";
-            
-            // Set traditional day defaults
-            const today = new Date().getDay();
-            dropdown.value = (today === 3) ? "O50-2" : "O60/70";
+            // Standard fallback
+            dropdown.value = "O60/70";
         }
     }
 
     function updateDefaults() {
         const type = document.getElementById("matchType").value;
+        const isSaturdayRules = saturdayConfigs.hasOwnProperty(type);
 
-        if (isSaturday) {
+        if (isSaturdayRules) {
+            // Swap UI forms to Saturday calculation parameters
+            document.getElementById("standardInputs").style.display = "none";
+            document.getElementById("saturdayInputs").style.display = "block";
+            document.getElementById("infoBox").style.display = "none";
+
             const config = saturdayConfigs[type];
             document.getElementById("satOversSide").value = config.defaultOvers;
             
@@ -320,6 +317,11 @@
                 inningsGroup.style.display = "block";
             }
         } else {
+            // Swap UI forms to Standard time calculation parameters
+            document.getElementById("standardInputs").style.display = "block";
+            document.getElementById("saturdayInputs").style.display = "none";
+            document.getElementById("infoBox").style.display = "block";
+
             const config = weekdayConfigs[type];
             document.getElementById("finish").value = config[0];
             document.getElementById("rate").value = config[1];
@@ -328,11 +330,14 @@
             const linkElement = document.getElementById("regLink");
             linkElement.href = config[3];
             linkElement.innerText = config[4];
+            
+            toggleTeaInput();
         }
     }
 
     function toggleTeaInput() {
-        if (!isSaturday) {
+        const type = document.getElementById("matchType").value;
+        if (!saturdayConfigs.hasOwnProperty(type)) {
             const innings = document.getElementById("innings").value;
             document.getElementById("teaGroup").style.display = (innings === "2") ? "none" : "block";
         }
@@ -349,8 +354,9 @@
 
     function calculateOvers() {
         try {
-            if (isSaturday) {
-                calculateSaturdayOvers();
+            const type = document.getElementById("matchType").value;
+            if (saturdayConfigs.hasOwnProperty(type)) {
+                calculateSaturdayOvers(type);
             } else {
                 calculateStandardOvers();
             }
@@ -359,8 +365,7 @@
         }
     }
 
-    function calculateSaturdayOvers() {
-        const matchType = document.getElementById("matchType").value;
+    function calculateSaturdayOvers(matchType) {
         const minsLost = parseFloat(document.getElementById("minsLost").value) || 0;
         const baseOvers = parseInt(document.getElementById("satOversSide").value, 10);
         const innings = document.getElementById("satInnings").value;
@@ -374,13 +379,13 @@
         } else {
             const extraMinutes = minsLost - 30;
             
-            // Rule checking: 1 over per 3.5 mins if 2nd Innings OR Div 1 Red ball. Otherwise 7 mins.
+            // Deduct 1 over per 3.5 mins if 2nd Innings OR Div 1 Red Ball. Otherwise 7 mins.
             if (innings === "2" || matchType === "Div1Red") {
                 oversLost = Math.floor(extraMinutes / 3.5);
                 detailsText = `Lost time above cushion: ${extraMinutes} mins.<br>Calculated at 1 over per 3.5 minutes.`;
             } else {
                 oversLost = Math.floor(extraMinutes / 7);
-                detailsText = `Lost time above cushion: ${extraMinutes} mins.<br>Calculated at 1 over per 7 minutes (from each innings).`;
+                detailsText = `Lost time above cushion: ${extraMinutes} mins.<br>Calculated at 1 over per 7 minutes.`;
             }
         }
 
@@ -389,9 +394,9 @@
         document.getElementById("resultOutput").innerHTML = `Remove ${oversLost} Overs`;
         document.getElementById("detailsOutput").innerHTML = `
             ${detailsText}<br>
-            Base target overs: <strong>${baseOvers}</strong><br>
+            Original base overs: <strong>${baseOvers}</strong><br>
             Revised overs per side: <strong>${newOvers}</strong>
-        `;
+        </h2>`;
         document.getElementById("resultBox").style.display = "block";
     }
 
@@ -457,12 +462,9 @@
     }
 
     function initApp() {
-        setupMatchTypeDropdown();
+        setInitialDefaultMatch();
         updateDefaults();
-        toggleTeaInput();
-        if(!isSaturday) {
-            document.getElementById("restart").value = getRoundedCurrentTime();
-        }
+        document.getElementById("restart").value = getRoundedCurrentTime();
     }
 
     if (document.readyState === "loading") {
