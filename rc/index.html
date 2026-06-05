@@ -164,7 +164,7 @@
     <div class="form-group">
         <label for="matchType">Match Type</label>
         <select id="matchType" onchange="updateDefaults()">
-            <optgroup label="Saturday Leagues">
+            <optgroup label="Premier Leagues">
                 <option value="Div1Red">Division 1 Red Ball</option>
                 <option value="Div1Pink">Division 1 Pink Ball</option>
                 <option value="Div2">Division 2</option>
@@ -268,6 +268,10 @@
         "Div3": { defaultOvers: 45, hideInnings: false }
     };
 
+    // League regulation link shared across all Saturday setups
+    const leagueRegsUrl = "https://drive.google.com/file/d/1iBxiV1k3F4tu4YDr7AUO8g4sDKanL66v/view?usp=drive_link";
+    const leagueRegsLabel = "League Competition Playing Regulations 2026";
+
     function getRoundedCurrentTime() {
         const now = new Date();
         let hours = now.getHours();
@@ -300,12 +304,12 @@
     function updateDefaults() {
         const type = document.getElementById("matchType").value;
         const isSaturdayRules = saturdayConfigs.hasOwnProperty(type);
+        const linkElement = document.getElementById("regLink");
 
         if (isSaturdayRules) {
             // Swap UI forms to Saturday calculation parameters
             document.getElementById("standardInputs").style.display = "none";
             document.getElementById("saturdayInputs").style.display = "block";
-            document.getElementById("infoBox").style.display = "none";
 
             const config = saturdayConfigs[type];
             document.getElementById("satOversSide").value = config.defaultOvers;
@@ -316,18 +320,20 @@
             } else {
                 inningsGroup.style.display = "block";
             }
+
+            // Assign the newly requested League link
+            linkElement.href = leagueRegsUrl;
+            linkElement.innerText = leagueRegsLabel;
         } else {
             // Swap UI forms to Standard time calculation parameters
             document.getElementById("standardInputs").style.display = "block";
             document.getElementById("saturdayInputs").style.display = "none";
-            document.getElementById("infoBox").style.display = "block";
 
             const config = weekdayConfigs[type];
             document.getElementById("finish").value = config[0];
             document.getElementById("rate").value = config[1];
             document.getElementById("tea").value = config[2];
 
-            const linkElement = document.getElementById("regLink");
             linkElement.href = config[3];
             linkElement.innerText = config[4];
             
@@ -396,7 +402,7 @@
             ${detailsText}<br>
             Original base overs: <strong>${baseOvers}</strong><br>
             Revised overs per side: <strong>${newOvers}</strong>
-        </h2>`;
+        `;
         document.getElementById("resultBox").style.display = "block";
     }
 
