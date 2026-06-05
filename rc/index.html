@@ -397,7 +397,15 @@
 
         const newOvers = Math.max(0, baseOvers - oversLost);
 
-        document.getElementById("resultOutput").innerHTML = `Remove ${oversLost} Overs`;
+        // Clarified Output Logic
+        let mainMessage = "";
+        if (matchType === "Div1Red" || innings === "1") {
+            mainMessage = `Remove ${oversLost} overs from each innings`;
+        } else {
+            mainMessage = `Remove ${oversLost} overs from 2nd innings`;
+        }
+
+        document.getElementById("resultOutput").innerHTML = mainMessage;
         document.getElementById("detailsOutput").innerHTML = `
             ${detailsText}<br>
             Original base overs: <strong>${baseOvers}</strong><br>
@@ -447,16 +455,17 @@
             warningText = `<br><span style="color: #d93025; font-size: 0.9rem; font-weight: bold;">Did you mean to select 2nd Innings?</span>`;
         }
 
+        // Clarified Output Logic
         if (innings === "1") {
             const oversPerInnings = Math.floor(oversLost / 2);
             const hasRemainder = (oversLost % 2 !== 0);
-            let mainMessage = `Remove ${oversPerInnings} overs per innings`;
+            let mainMessage = `Remove ${oversPerInnings} overs from each innings`;
             if (hasRemainder) {
                 mainMessage += ` <span style="font-size:1rem; font-weight:normal; color:#555;">(with 1 extra over remaining)</span>`;
             }
             document.getElementById("resultOutput").innerHTML = mainMessage + warningText;
         } else {
-            document.getElementById("resultOutput").innerHTML = `Remove ${oversLost} overs ${warningText}`;
+            document.getElementById("resultOutput").innerHTML = `Remove ${oversLost} overs from 2nd innings ${warningText}`;
         }
 
         document.getElementById("detailsOutput").innerHTML = `
