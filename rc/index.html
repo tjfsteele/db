@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Seniors Rain Calculator</title>
+    <title>Lost Overs Calculator</title>
     <style>
         :root {
             --bg-color: #f4f6f9;
@@ -159,52 +159,75 @@
 <body>
 
 <div class="container">
-    <h2>Seniors Rain Calculator</h2>
+    <h2>Lost Overs Calculator</h2>
 
     <div class="form-group">
+        <label for="matchType">Match Type</label>
         <select id="matchType" onchange="updateDefaults()">
-            <option value="O50-1">Over 50s 1st XI</option>
-            <option value="O50-2">Over 50s 2nd XI</option>
-            <option value="O60/70">Over 60s/70s</option>
+            <!-- Options dynamically built depending on day of week -->
         </select>
     </div>
 
-    <div class="form-row">
-        <div class="form-group">
-            <label for="oversSide">Overs Per Side</label>
-            <input type="number" id="oversSide" value="45">
+    <!-- Standard Parameters Mode -->
+    <div id="standardInputs">
+        <div class="form-row">
+            <div class="form-group">
+                <label for="oversSide">Overs Per Side</label>
+                <input type="number" id="oversSide" value="45">
+            </div>
+
+            <div class="form-group" id="inningsGroup">
+                <label for="innings">Innings</label>
+                <select id="innings" onchange="toggleTeaInput()">
+                    <option value="1" selected>1st Innings</option>
+                    <option value="2">2nd Innings</option>
+                </select>
+            </div>
         </div>
 
         <div class="form-group">
-            <label for="innings">Innings</label>
-            <select id="innings" onchange="toggleTeaInput()">
-                <option value="1" selected>1st Innings</option>
-                <option value="2">2nd Innings</option>
-            </select>
+            <label for="restart">Restart Time (HH:MM)</label>
+            <input type="time" id="restart">
+        </div>
+
+        <div class="form-group">
+            <label for="oversRemaining">Overs Remaining in Innings (e.g., 29.4)</label>
+            <input type="number" step="0.1" id="oversRemaining" value="45.0">
+        </div>
+
+        <div class="form-group">
+            <label for="finish">Agreed Finish Time (HH:MM)</label>
+            <input type="time" id="finish" value="19:30">
+        </div>
+
+        <div class="form-group" id="teaGroup">
+            <label for="tea">Tea Interval (minutes)</label>
+            <input type="number" id="tea" value="20">
         </div>
     </div>
 
-    <div class="form-group">
-        <label for="restart">Restart Time (HH:MM)</label>
-        <input type="time" id="restart" required>
-    </div>
-
-    <div class="form-group">
-        <label for="oversRemaining">Overs Remaining in Innings (e.g., 29.4)</label>
-        <input type="number" step="0.1" id="oversRemaining" value="45.0" required>
-    </div>
-
-    <div class="form-group">
-        <label for="finish">Agreed Finish Time (HH:MM)</label>
-        <input type="time" id="finish" value="19:30">
+    <!-- Saturday New Rules Mode -->
+    <div id="saturdayInputs" style="display: none;">
+        <div class="form-row">
+            <div class="form-group">
+                <label for="satOversSide">Overs Per Side</label>
+                <input type="number" id="satOversSide" value="50">
+            </div>
+            <div class="form-group" id="satInningsGroup">
+                <label for="satInnings">Innings</label>
+                <select id="satInnings">
+                    <option value="1" selected>1st Innings</option>
+                    <option value="2">2nd Innings</option>
+                </select>
+            </div>
+        </div>
+        <div class="form-group">
+            <label for="minsLost">Cumulative Minutes Lost</label>
+            <input type="number" id="minsLost" value="0" min="0">
+        </div>
     </div>
 
     <input type="hidden" id="rate" value="15">
-
-    <div class="form-group" id="teaGroup">
-        <label for="tea">Tea Interval (minutes)</label>
-        <input type="number" id="tea" value="20">
-    </div>
 
     <button type="button" onclick="calculateOvers()">Calculate Overs to Remove</button>
 
@@ -213,36 +236,30 @@
         <div id="detailsOutput" class="result-details"></div>
     </div>
     
-    <div class="info-text">
+    <div class="info-text" id="infoBox">
         <a id="regLink" href="#" target="_blank">Loading tournament regulations...</a>
     </div>
     
 </div>
 
 <script>
-    const configs = {
-        "O50-1": [
-            "19:30", 
-            15, 
-            20, 
-            "https://drive.google.com/file/d/14jwG3qbzbXbRdNMDjuZSIu1oX4rmTOF3/view?usp=drive_link", 
-            "Over 50 1st XI Playing Regulations 2026"
-        ],
-        "O50-2": [
-            "19:30", 
-            18, 
-            20, 
-            "https://drive.google.com/file/d/16-QMWDUQjvNOby_CATWCqULhZK4BrL_H/view?usp=drive_link", 
-            "Over 50 2nd XI Playing Regulations 2026"
-        ],
-        "O60/70": [
-            "20:00", 
-            16, 
-            30, 
-            "https://drive.google.com/file/d/1Btd1ul6t0Khupzq3oD6LMu4wnLYxakbU/view?usp=drive_link", 
-            "Over 60/70 Playing Regulations 2026"
-        ]
+    // Weekday Configurations
+    const weekdayConfigs = {
+        "O50-1": ["19:30", 15, 20, "https://drive.google.com/file/d/14jwG3qbzbXbRdNMDjuZSIu1oX4rmTOF3/view?usp=drive_link", "Over 50 1st XI Playing Regulations 2026"],
+        "O50-2": ["19:30", 18, 20, "https://drive.google.com/file/d/16-QMWDUQjvNOby_CATWCqULhZK4BrL_H/view?usp=drive_link", "Over 50 2nd XI Playing Regulations 2026"],
+        "O60/70": ["20:00", 16, 30, "https://drive.google.com/file/d/1Btd1ul6t0Khupzq3oD6LMu4wnLYxakbU/view?usp=drive_link", "Over 60/70 Playing Regulations 2026"]
     };
+
+    // Saturday Configurations 
+    const saturdayConfigs = {
+        "Div1Red": { label: "Division 1 Red Ball", defaultOvers: 110, hideInnings: true },
+        "Div1Pink": { label: "Division 1 Pink Ball", defaultOvers: 50, hideInnings: false },
+        "Div2": { label: "Division 2", defaultOvers: 50, hideInnings: false },
+        "Div3": { label: "Division 3", defaultOvers: 45, hideInnings: false }
+    };
+
+    // Toggle this to test Saturday UI manually if needed (e.g., true/false)
+    const isSaturday = (new Date().getDay() === 6);
 
     function getRoundedCurrentTime() {
         const now = new Date();
@@ -250,60 +267,75 @@
         let minutes = now.getMinutes();
         
         const remainder = minutes % 5;
-        if (remainder !== 0) {
-            minutes += (5 - remainder);
-        }
-        
-        if (minutes === 60) {
-            minutes = 0;
-            hours += 1;
-        }
-        if (hours === 24) {
-            hours = 0;
-        }
+        if (remainder !== 0) minutes += (5 - remainder);
+        if (minutes === 60) { minutes = 0; hours += 1; }
+        if (hours === 24) hours = 0;
         
         return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
     }
 
-    function setDayBasedDefault() {
-        const today = new Date().getDay();
+    function setupMatchTypeDropdown() {
         const dropdown = document.getElementById("matchType");
-        
-        if (today === 3) {
-            dropdown.value = "O50-2";
+        dropdown.innerHTML = "";
+
+        if (isSaturday) {
+            // Saturday Options
+            for (const [key, config] of Object.entries(saturdayConfigs)) {
+                let opt = document.createElement("option");
+                opt.value = key;
+                opt.textContent = config.label;
+                dropdown.appendChild(opt);
+            }
+            document.getElementById("standardInputs").style.display = "none";
+            document.getElementById("saturdayInputs").style.display = "block";
+            document.getElementById("infoBox").style.display = "none"; // Clear default info links for Saturdays
         } else {
-            dropdown.value = "O60/70";
+            // Weekday Options
+            for (const [key, config] of Object.entries(weekdayConfigs)) {
+                let opt = document.createElement("option");
+                opt.value = key;
+                opt.textContent = config[4].split(" Playing")[0]; // Cleaner name
+                dropdown.appendChild(opt);
+            }
+            document.getElementById("standardInputs").style.display = "block";
+            document.getElementById("saturdayInputs").style.display = "none";
+            
+            // Set traditional day defaults
+            const today = new Date().getDay();
+            dropdown.value = (today === 3) ? "O50-2" : "O60/70";
         }
     }
 
     function updateDefaults() {
         const type = document.getElementById("matchType").value;
-        const config = configs[type];
-        
-        document.getElementById("finish").value = config[0];
-        document.getElementById("rate").value = config[1];
-        document.getElementById("tea").value = config[2];
 
-        const linkElement = document.getElementById("regLink");
-        linkElement.href = config[3];
-        linkElement.innerText = config[4];
-        
-        if (type === "O50-1" && config[3] === "PASTE_YOUR_LINK_HERE") {
-            linkElement.removeAttribute("href");
-            linkElement.style.color = "#555";
-            linkElement.style.textDecoration = "none";
-            linkElement.style.cursor = "default";
+        if (isSaturday) {
+            const config = saturdayConfigs[type];
+            document.getElementById("satOversSide").value = config.defaultOvers;
+            
+            const inningsGroup = document.getElementById("satInningsGroup");
+            if (config.hideInnings) {
+                inningsGroup.style.display = "none";
+            } else {
+                inningsGroup.style.display = "block";
+            }
         } else {
-            linkElement.style.color = "var(--primary-color)";
-            linkElement.style.textDecoration = "";
-            linkElement.style.cursor = "pointer";
+            const config = weekdayConfigs[type];
+            document.getElementById("finish").value = config[0];
+            document.getElementById("rate").value = config[1];
+            document.getElementById("tea").value = config[2];
+
+            const linkElement = document.getElementById("regLink");
+            linkElement.href = config[3];
+            linkElement.innerText = config[4];
         }
     }
 
     function toggleTeaInput() {
-        const innings = document.getElementById("innings").value;
-        const teaGroup = document.getElementById("teaGroup");
-        teaGroup.style.display = (innings === "2") ? "none" : "block";
+        if (!isSaturday) {
+            const innings = document.getElementById("innings").value;
+            document.getElementById("teaGroup").style.display = (innings === "2") ? "none" : "block";
+        }
     }
 
     function overToBalls(overStr) {
@@ -317,87 +349,120 @@
 
     function calculateOvers() {
         try {
-            const restartStr = document.getElementById("restart").value;
-            const finishStr = document.getElementById("finish").value;
-            
-            if (!restartStr || !finishStr) {
-                alert("Please fill in both Restart and Finish times.");
-                return;
-            }
-
-            const [rH, rM] = restartStr.split(':').map(Number);
-            let [fH, fM] = finishStr.split(':').map(Number);
-
-            let availableMins = (fH * 60 + fM) - (rH * 60 + rM);
-            if (availableMins <= 0) availableMins += 24 * 60;
-
-            const innings = document.getElementById("innings").value;
-            if (innings === "1") {
-                availableMins -= parseFloat(document.getElementById("tea").value) || 0;
-            }
-
-            if (availableMins <= 0) {
-                alert("Error: No playing time left after subtracting variables.");
-                return;
-            }
-
-            const ratePerHour = parseFloat(document.getElementById("rate").value);
-            const minsPerOver = 60.0 / ratePerHour;
-            const agreedOversPerSide = parseInt(document.getElementById("oversSide").value, 10);
-
-            // Calculate max physical overs that can physically fit into the time window
-            const possibleOversRemaining = Math.floor(availableMins / minsPerOver);
-            
-            // Get the absolute number of overs scheduled to be bowled from this point onward
-            const totalRemainingBalls = overToBalls(document.getElementById("oversRemaining").value);
-            const scheduledOversRemainingCeil = Math.floor(totalRemainingBalls / 6) + (totalRemainingBalls % 6 > 0 ? 1 : 0);
-
-            // Total remaining structured match overs (if 1st innings, includes the 2nd innings too)
-            let totalMatchOversLeft = (innings === "1") ? scheduledOversRemainingCeil + agreedOversPerSide : scheduledOversRemainingCeil;
-            
-            // Deduct what we can physically manage from what we have left scheduled
-            let oversLost = Math.max(0, totalMatchOversLeft - possibleOversRemaining);
-            
-            let warningText = "";
-            if (innings === "1" && oversLost > scheduledOversRemainingCeil) {
-                warningText = `<br><span style="color: #d93025; font-size: 0.9rem; font-weight: bold;">
-                    Did you mean to select 2nd Innings?
-                </span>`;
-            }
-
-            // --- CHANGED LOGIC START ---
-            if (innings === "1") {
-                const oversPerInnings = Math.floor(oversLost / 2);
-                const hasRemainder = (oversLost % 2 !== 0);
-                
-                let mainMessage = `Remove ${oversPerInnings} overs per innings`;
-                if (hasRemainder) {
-                    mainMessage += ` <span style="font-size:1rem; font-weight:normal; color:#555;">(with 1 extra over remaining)</span>`;
-                }
-                
-                document.getElementById("resultOutput").innerHTML = mainMessage + warningText;
+            if (isSaturday) {
+                calculateSaturdayOvers();
             } else {
-                document.getElementById("resultOutput").innerHTML = `Remove ${oversLost} overs ${warningText}`;
+                calculateStandardOvers();
             }
-            // --- CHANGED LOGIC END ---
-
-            document.getElementById("detailsOutput").innerHTML = `
-                Total overs lost: <strong>${oversLost} overs</strong><br>
-                Available Playing Time: <strong>${availableMins} mins</strong><br>
-                Max overs fitting in time: <strong>${possibleOversRemaining}</strong>
-            `;
-            document.getElementById("resultBox").style.display = "block";
-
         } catch (e) {
             alert("Please verify that all inputs are filled in correctly.");
         }
     }
 
+    function calculateSaturdayOvers() {
+        const matchType = document.getElementById("matchType").value;
+        const minsLost = parseFloat(document.getElementById("minsLost").value) || 0;
+        const baseOvers = parseInt(document.getElementById("satOversSide").value, 10);
+        const innings = document.getElementById("satInnings").value;
+
+        let oversLost = 0;
+        let detailsText = "";
+
+        if (minsLost <= 30) {
+            oversLost = 0;
+            detailsText = "No overs lost as cumulative delay is 30 minutes or under.";
+        } else {
+            const extraMinutes = minsLost - 30;
+            
+            // Rule checking: 1 over per 3.5 mins if 2nd Innings OR Div 1 Red ball. Otherwise 7 mins.
+            if (innings === "2" || matchType === "Div1Red") {
+                oversLost = Math.floor(extraMinutes / 3.5);
+                detailsText = `Lost time above cushion: ${extraMinutes} mins.<br>Calculated at 1 over per 3.5 minutes.`;
+            } else {
+                oversLost = Math.floor(extraMinutes / 7);
+                detailsText = `Lost time above cushion: ${extraMinutes} mins.<br>Calculated at 1 over per 7 minutes (from each innings).`;
+            }
+        }
+
+        const newOvers = Math.max(0, baseOvers - oversLost);
+
+        document.getElementById("resultOutput").innerHTML = `Remove ${oversLost} Overs`;
+        document.getElementById("detailsOutput").innerHTML = `
+            ${detailsText}<br>
+            Base target overs: <strong>${baseOvers}</strong><br>
+            Revised overs per side: <strong>${newOvers}</strong>
+        `;
+        document.getElementById("resultBox").style.display = "block";
+    }
+
+    function calculateStandardOvers() {
+        const restartStr = document.getElementById("restart").value;
+        const finishStr = document.getElementById("finish").value;
+        
+        if (!restartStr || !finishStr) {
+            alert("Please fill in both Restart and Finish times.");
+            return;
+        }
+
+        const [rH, rM] = restartStr.split(':').map(Number);
+        let [fH, fM] = finishStr.split(':').map(Number);
+
+        let availableMins = (fH * 60 + fM) - (rH * 60 + rM);
+        if (availableMins <= 0) availableMins += 24 * 60;
+
+        const innings = document.getElementById("innings").value;
+        if (innings === "1") {
+            availableMins -= parseFloat(document.getElementById("tea").value) || 0;
+        }
+
+        if (availableMins <= 0) {
+            alert("Error: No playing time left after subtracting variables.");
+            return;
+        }
+
+        const ratePerHour = parseFloat(document.getElementById("rate").value);
+        const minsPerOver = 60.0 / ratePerHour;
+        const agreedOversPerSide = parseInt(document.getElementById("oversSide").value, 10);
+
+        const possibleOversRemaining = Math.floor(availableMins / minsPerOver);
+        const totalRemainingBalls = overToBalls(document.getElementById("oversRemaining").value);
+        const scheduledOversRemainingCeil = Math.floor(totalRemainingBalls / 6) + (totalRemainingBalls % 6 > 0 ? 1 : 0);
+
+        let totalMatchOversLeft = (innings === "1") ? scheduledOversRemainingCeil + agreedOversPerSide : scheduledOversRemainingCeil;
+        let oversLost = Math.max(0, totalMatchOversLeft - possibleOversRemaining);
+        
+        let warningText = "";
+        if (innings === "1" && oversLost > scheduledOversRemainingCeil) {
+            warningText = `<br><span style="color: #d93025; font-size: 0.9rem; font-weight: bold;">Did you mean to select 2nd Innings?</span>`;
+        }
+
+        if (innings === "1") {
+            const oversPerInnings = Math.floor(oversLost / 2);
+            const hasRemainder = (oversLost % 2 !== 0);
+            let mainMessage = `Remove ${oversPerInnings} overs per innings`;
+            if (hasRemainder) {
+                mainMessage += ` <span style="font-size:1rem; font-weight:normal; color:#555;">(with 1 extra over remaining)</span>`;
+            }
+            document.getElementById("resultOutput").innerHTML = mainMessage + warningText;
+        } else {
+            document.getElementById("resultOutput").innerHTML = `Remove ${oversLost} overs ${warningText}`;
+        }
+
+        document.getElementById("detailsOutput").innerHTML = `
+            Total overs lost: <strong>${oversLost} overs</strong><br>
+            Available Playing Time: <strong>${availableMins} mins</strong><br>
+            Max overs fitting in time: <strong>${possibleOversRemaining}</strong>
+        `;
+        document.getElementById("resultBox").style.display = "block";
+    }
+
     function initApp() {
-        setDayBasedDefault();
+        setupMatchTypeDropdown();
         updateDefaults();
         toggleTeaInput();
-        document.getElementById("restart").value = getRoundedCurrentTime();
+        if(!isSaturday) {
+            document.getElementById("restart").value = getRoundedCurrentTime();
+        }
     }
 
     if (document.readyState === "loading") {
