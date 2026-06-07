@@ -443,7 +443,7 @@
         const minsPerOver = 60.0 / ratePerHour;
         const agreedOversPerSide = parseInt(document.getElementById("oversSide").value, 10);
 
-        const possibleOversRemaining = Math.floor(availableMins / minsPerOver);
+        const possibleOversRemaining = Math.ceil(availableMins / minsPerOver);
         const totalRemainingBalls = overToBalls(document.getElementById("oversRemaining").value);
         const scheduledOversRemainingCeil = Math.floor(totalRemainingBalls / 6) + (totalRemainingBalls % 6 > 0 ? 1 : 0);
 
