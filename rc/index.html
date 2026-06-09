@@ -39,6 +39,8 @@
             box-shadow: 0 4px 15px rgba(0,0,0,0.05);
             width: 100%;
             max-width: 480px;
+            display: flex;
+            flex-direction: column;
         }
 
         h2 {
@@ -158,13 +160,19 @@
 
         .comments-wrapper {
             text-align: center;
-            margin-top: 15px;
+            margin-top: 20px;
+            padding-top: 5px;
+            width: 100%;
+            display: block;
+            clear: both;
         }
 
         .comments-wrapper a {
             color: #777;
             font-size: 0.85rem;
             text-decoration: none;
+            display: inline-block;
+            padding: 5px 10px;
         }
 
         .comments-wrapper a:hover {
@@ -195,7 +203,6 @@
         </select>
     </div>
 
-    <!-- Standard Parameters Input Block -->
     <div id="standardInputs">
         <div class="form-row">
             <div class="form-group">
@@ -233,7 +240,6 @@
         </div>
     </div>
 
-    <!-- Saturday Calculations Input Block -->
     <div id="saturdayInputs" style="display: none;">
         <div class="form-row">
             <div class="form-group">
