@@ -48,22 +48,23 @@
             font-size: 1.4rem;
         }
 
-        /* Combined footer layout block to fix erratic alignment spaces */
+        /* Rigid footer container to enforce layout positions */
         .footer-links-group {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
+            display: grid;
+            grid-template-columns: 1fr;
             margin-top: 15px;
-            gap: 8px; /* Dictates the exact distance between regulations box and email */
+            gap: 6px;
+            width: 100%;
+            justify-items: center;
         }
 
         .info-text {
             background-color: #f8f9fa;
             border: 1px solid var(--border-color);
             border-radius: 6px;
-            padding: 12px 15px;
+            padding: 10px 15px;
             font-size: 0.9rem;
-            line-height: 1.4;
+            line-height: 1.3;
             color: #555;
             width: 100%;
             text-align: center;
@@ -73,6 +74,7 @@
             color: var(--primary-color);
             text-decoration: none;
             font-weight: bold;
+            display: inline-block;
         }
 
         .info-text a:hover {
@@ -169,6 +171,7 @@
         .comments-wrapper {
             text-align: center;
             width: 100%;
+            line-height: 1;
         }
 
         .comments-wrapper a {
@@ -176,6 +179,7 @@
             font-size: 0.85rem;
             text-decoration: none;
             display: inline-block;
+            vertical-align: top;
         }
 
         .comments-wrapper a:hover {
