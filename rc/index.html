@@ -164,7 +164,7 @@
             padding-top: 5px;
             width: 100%;
             display: block;
-            clear: both;
+            position: relative;
         }
 
         .comments-wrapper a {
@@ -173,11 +173,29 @@
             text-decoration: none;
             display: inline-block;
             padding: 5px 10px;
+            cursor: pointer;
         }
 
         .comments-wrapper a:hover {
             text-decoration: underline;
             color: var(--primary-color);
+        }
+
+        /* Copy feedback notification tooltip styling */
+        .copy-toast {
+            display: none;
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #333;
+            color: #fff;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            white-space: nowrap;
+            z-index: 10;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
         }
     </style>
 </head>
@@ -274,7 +292,8 @@
     </div>
 
     <div class="comments-wrapper">
-        <a href="mailto:scorer@tjfs.com">scorer@tjfs.com</a>
+        <span class="copy-toast" id="copyToast">Email copied to clipboard!</span>
+        <a href="mailto:scorer@tjfs.com" onclick="handleEmailClick(event)">scorer@tjfs.com</a>
     </div>
     
 </div>
@@ -299,6 +318,44 @@
     const leagueRegsUrl = "https://tjfsteele.github.io/pdf/Onyx_Handbook_2026.pdf#page=54";
     const leagueRegsLabel = "League Competition Playing Regulations 2026";
 
+    // Handle copying to clipboard if mailto fails or runs silently
+    function handleEmailClick(event) {
+        const email = "scorer@tjfs.com";
+        
+        // Copy option to clipboard framework
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(email).then(() => {
+                showToast();
+            }).catch(() => {
+                fallbackCopy(email);
+            });
+        } else {
+            fallbackCopy(email);
+        }
+    }
+
+    function fallbackCopy(text) {
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        textArea.style.position = "fixed"; 
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        try {
+            document.execCommand('copy');
+            showToast();
+        } catch (err) {}
+        document.body.removeChild(textArea);
+    }
+
+    function showToast() {
+        const toast = document.getElementById("copyToast");
+        toast.style.display = "block";
+        setTimeout(() => {
+            toast.style.display = "none";
+        }, 2500);
+    }
+
     function getRoundedCurrentTime() {
         const now = new Date();
         let hours = now.getHours();
@@ -317,13 +374,10 @@
         const dropdown = document.getElementById("matchType");
 
         if (today === 6) {
-            // Saturday defaults to Division 2
             dropdown.value = "Div2";
         } else if (today === 3) {
-            // Wednesday defaults to O50 2nd XI
             dropdown.value = "O50-2";
         } else {
-            // Standard fallback
             dropdown.value = "O60/70";
         }
     }
@@ -334,7 +388,6 @@
         const linkElement = document.getElementById("regLink");
 
         if (isSaturdayRules) {
-            // Swap UI forms to Saturday calculation parameters
             document.getElementById("standardInputs").style.display = "none";
             document.getElementById("saturdayInputs").style.display = "block";
 
@@ -348,11 +401,9 @@
                 inningsGroup.style.display = "block";
             }
 
-            // Assign the newly requested League link
             linkElement.href = leagueRegsUrl;
             linkElement.innerText = leagueRegsLabel;
         } else {
-            // Swap UI forms to Standard time calculation parameters
             document.getElementById("standardInputs").style.display = "block";
             document.getElementById("saturdayInputs").style.display = "none";
 
@@ -412,7 +463,6 @@
         } else {
             const extraMinutes = minsLost - 30;
             
-            // Deduct 1 over per 3.5 mins if 2nd Innings OR Div 1 Red Ball. Otherwise 7 mins.
             if (innings === "2" || matchType === "Div1Red") {
                 oversLost = Math.floor(extraMinutes / 3.5);
                 detailsText = `Lost time above cushion: ${extraMinutes} mins.<br>Calculated at 1 over per 3.5 minutes.`;
@@ -424,7 +474,6 @@
 
         const newOvers = Math.max(0, baseOvers - oversLost);
 
-        // Clarified Output Logic
         let mainMessage = "";
         if (matchType === "Div1Red" || innings === "1") {
             mainMessage = `Remove ${oversLost} overs from each innings`;
@@ -482,7 +531,6 @@
             warningText = `<br><span style="color: #d93025; font-size: 0.9rem; font-weight: bold;">Did you mean to select 2nd Innings?</span>`;
         }
 
-        // Clarified Output Logic
         if (innings === "1") {
             const oversPerInnings = Math.floor(oversLost / 2);
             const hasRemainder = (oversLost % 2 !== 0);
