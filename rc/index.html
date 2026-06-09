@@ -58,7 +58,7 @@
             font-size: 0.9rem;
             line-height: 1.4;
             color: #555;
-            margin-bottom: 25px;
+            margin-bottom: 12px; /* Reduced from 25px to close the gap */
         }
 
         .info-text a {
@@ -160,8 +160,7 @@
 
         .comments-wrapper {
             text-align: center;
-            margin-top: 20px;
-            padding-top: 5px;
+            margin-top: 5px; /* Reduced from 20px to bring it closer */
             width: 100%;
             display: block;
             position: relative;
@@ -172,7 +171,7 @@
             font-size: 0.85rem;
             text-decoration: none;
             display: inline-block;
-            padding: 5px 10px;
+            padding: 3px 10px;
             cursor: pointer;
         }
 
@@ -181,7 +180,6 @@
             color: var(--primary-color);
         }
 
-        /* Copy feedback notification tooltip styling */
         .copy-toast {
             display: none;
             position: absolute;
@@ -318,11 +316,9 @@
     const leagueRegsUrl = "https://tjfsteele.github.io/pdf/Onyx_Handbook_2026.pdf#page=54";
     const leagueRegsLabel = "League Competition Playing Regulations 2026";
 
-    // Handle copying to clipboard if mailto fails or runs silently
     function handleEmailClick(event) {
         const email = "scorer@tjfs.com";
         
-        // Copy option to clipboard framework
         if (navigator.clipboard && navigator.clipboard.writeText) {
             navigator.clipboard.writeText(email).then(() => {
                 showToast();
