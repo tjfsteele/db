@@ -39,8 +39,6 @@
             box-shadow: 0 4px 15px rgba(0,0,0,0.05);
             width: 100%;
             max-width: 480px;
-            display: flex;
-            flex-direction: column;
         }
 
         h2 {
@@ -48,6 +46,15 @@
             margin-bottom: 15px;
             color: #111;
             font-size: 1.4rem;
+        }
+
+        /* Combined footer layout block to fix erratic alignment spaces */
+        .footer-links-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-top: 15px;
+            gap: 8px; /* Dictates the exact distance between regulations box and email */
         }
 
         .info-text {
@@ -58,8 +65,8 @@
             font-size: 0.9rem;
             line-height: 1.4;
             color: #555;
-            margin-top: 15px; /* Pushes it cleanly from fields/results above it */
-            margin-bottom: 0; /* Zeroed out to prevent crushing the email link below */
+            width: 100%;
+            text-align: center;
         }
 
         .info-text a {
@@ -129,13 +136,13 @@
         }
 
         .result-box {
-            margin-top: 15px;
+            margin-top: 20px;
             padding: 15px;
             background-color: var(--accent-bg);
             border-radius: 8px;
             border-left: 5px solid var(--primary-color);
             display: none;
-            margin-bottom: 0; /* Let info-text handle top push natively */
+            margin-bottom: 5px;
         }
 
         .result-title {
@@ -161,10 +168,7 @@
 
         .comments-wrapper {
             text-align: center;
-            margin-top: 4px; /* Tiny, strict structural gap directly below the regulations wrapper */
             width: 100%;
-            display: block;
-            position: relative;
         }
 
         .comments-wrapper a {
@@ -172,29 +176,11 @@
             font-size: 0.85rem;
             text-decoration: none;
             display: inline-block;
-            padding: 2px 10px;
-            cursor: pointer;
         }
 
         .comments-wrapper a:hover {
             text-decoration: underline;
             color: var(--primary-color);
-        }
-
-        .copy-toast {
-            display: none;
-            position: absolute;
-            bottom: 26px;
-            left: 50%;
-            transform: translateX(-50%);
-            background-color: #333;
-            color: #fff;
-            padding: 4px 10px;
-            border-radius: 4px;
-            font-size: 0.75rem;
-            white-space: nowrap;
-            z-index: 10;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
         }
     </style>
 </head>
@@ -220,7 +206,6 @@
         </select>
     </div>
 
-    <!-- Standard Parameters Input Block -->
     <div id="standardInputs">
         <div class="form-row">
             <div class="form-group">
@@ -258,7 +243,6 @@
         </div>
     </div>
 
-    <!-- Saturday Calculations Input Block -->
     <div id="saturdayInputs" style="display: none;">
         <div class="form-row">
             <div class="form-group">
@@ -288,13 +272,14 @@
         <div id="detailsOutput" class="result-details"></div>
     </div>
     
-    <div class="info-text" id="infoBox">
-        <a id="regLink" href="#" target="_blank">Loading tournament regulations...</a>
-    </div>
+    <div class="footer-links-group">
+        <div class="info-text" id="infoBox">
+            <a id="regLink" href="#" target="_blank">Loading tournament regulations...</a>
+        </div>
 
-    <div class="comments-wrapper">
-        <span class="copy-toast" id="copyToast">Email copied to clipboard!</span>
-        <a href="mailto:scorer@tjfs.com" onclick="handleEmailClick(event)">scorer@tjfs.com</a>
+        <div class="comments-wrapper">
+            <a href="mailto:scorer@tjfs.com">scorer@tjfs.com</a>
+        </div>
     </div>
     
 </div>
@@ -318,42 +303,6 @@
     // League regulation link shared across all Saturday setups
     const leagueRegsUrl = "https://tjfsteele.github.io/pdf/Onyx_Handbook_2026.pdf#page=54";
     const leagueRegsLabel = "League Competition Playing Regulations 2026";
-
-    function handleEmailClick(event) {
-        const email = "scorer@tjfs.com";
-        
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(email).then(() => {
-                showToast();
-            }).catch(() => {
-                fallbackCopy(email);
-            });
-        } else {
-            fallbackCopy(email);
-        }
-    }
-
-    function fallbackCopy(text) {
-        const textArea = document.createElement("textarea");
-        textArea.value = text;
-        textArea.style.position = "fixed"; 
-        document.body.appendChild(textArea);
-        textArea.focus();
-        textArea.select();
-        try {
-            document.execCommand('copy');
-            showToast();
-        } catch (err) {}
-        document.body.removeChild(textArea);
-    }
-
-    function showToast() {
-        const toast = document.getElementById("copyToast");
-        toast.style.display = "block";
-        setTimeout(() => {
-            toast.style.display = "none";
-        }, 2500);
-    }
 
     function getRoundedCurrentTime() {
         const now = new Date();
