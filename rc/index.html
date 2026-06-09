@@ -58,7 +58,8 @@
             font-size: 0.9rem;
             line-height: 1.4;
             color: #555;
-            margin-bottom: 12px; /* Reduced from 25px to close the gap */
+            margin-top: 15px; /* Pushes it cleanly from fields/results above it */
+            margin-bottom: 0; /* Zeroed out to prevent crushing the email link below */
         }
 
         .info-text a {
@@ -128,13 +129,13 @@
         }
 
         .result-box {
-            margin-top: 20px;
+            margin-top: 15px;
             padding: 15px;
             background-color: var(--accent-bg);
             border-radius: 8px;
             border-left: 5px solid var(--primary-color);
             display: none;
-            margin-bottom: 20px;
+            margin-bottom: 0; /* Let info-text handle top push natively */
         }
 
         .result-title {
@@ -160,7 +161,7 @@
 
         .comments-wrapper {
             text-align: center;
-            margin-top: 5px; /* Reduced from 20px to bring it closer */
+            margin-top: 4px; /* Tiny, strict structural gap directly below the regulations wrapper */
             width: 100%;
             display: block;
             position: relative;
@@ -171,7 +172,7 @@
             font-size: 0.85rem;
             text-decoration: none;
             display: inline-block;
-            padding: 3px 10px;
+            padding: 2px 10px;
             cursor: pointer;
         }
 
@@ -183,7 +184,7 @@
         .copy-toast {
             display: none;
             position: absolute;
-            bottom: 30px;
+            bottom: 26px;
             left: 50%;
             transform: translateX(-50%);
             background-color: #333;
@@ -219,6 +220,7 @@
         </select>
     </div>
 
+    <!-- Standard Parameters Input Block -->
     <div id="standardInputs">
         <div class="form-row">
             <div class="form-group">
@@ -256,6 +258,7 @@
         </div>
     </div>
 
+    <!-- Saturday Calculations Input Block -->
     <div id="saturdayInputs" style="display: none;">
         <div class="form-row">
             <div class="form-group">
