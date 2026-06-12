@@ -150,22 +150,22 @@
 <body>
 
 <div class="container">
-    <h2>Div 1 Red Ball Calculator (1248)</h2>
+    <h2>Div 1 Red Ball Calculator</h2>
 
     <div class="form-row">
         <div class="form-group">
-            <label for="agreedOvers">Total Overs Agreed</label>
+            <label for="agreedOvers">Total Overs after reductions</label>
             <input type="number" id="agreedOvers" value="110" min="1" oninput="updateCalculatedOversLabel()">
         </div>
         <div class="form-group">
             <label for="matchOutcome">Result</label>
             <select id="matchOutcome" onchange="toggleInputs()">
-                <option value="won1">Team 1 Won</option>
-                <option value="won2">Team 2 Won</option>
-                <option value="draw">Drawn Match</option>
-                <option value="tie">Match Tied</option>
-                <option value="abandoned">Match Abandoned</option>
-                <option value="cancelled">Match Cancelled</option>
+                <option value="won1">Team 1 Win</option>
+                <option value="won2">Team 2 Win</option>
+                <option value="draw">Drawn</option>
+                <option value="tie">Tied</option>
+                <option value="abandoned">Abandoned</option>
+                <option value="cancelled">Cancelled</option>
             </select>
         </div>
     </div>
@@ -247,6 +247,7 @@
         const outcome = document.getElementById("matchOutcome").value;
         
         const X = agreed / 110;
+        const xPercentage = X * 100; // Format X as a percentage
         
         const t1Runs = parseInt(document.getElementById("t1Runs").value) || 0;
         const t1Wickets = parseInt(document.getElementById("t1Wickets").value) || 0;
@@ -295,16 +296,14 @@
             }
         }
 
-        // 2. Calculate Bonus Points (For Draw, Lose, Abandoned matches)
+        // 2. Calculate Bonus Points
         let t1BonusBat = 0, t1BonusBowl = 0;
         let t2BonusBat = 0, t2BonusBowl = 0;
 
         if (eligibleForBonus || outcome === "won1" || outcome === "won2") {
-            // Bowling Bonus Points (1 point for each 2 wickets taken, rounded down)
             const t1BowlingBonus = Math.floor(t2Wickets / 2);
             const t2BowlingBonus = Math.floor(t1Wickets / 2);
 
-            // Batting Bonus Milestones function (Maximum base of 5 points)
             function getMilestonePoints(runs) {
                 let pts = 0;
                 if (runs >= Math.floor(250 * X)) pts = 5;
@@ -315,13 +314,9 @@
                 return pts;
             }
 
-            // Team 1 Batting Points (Uses lookback runs at 52X, doubled for batting first)
             let t1BatBonus = getMilestonePoints(t1Lookback) * 2;
-
-            // Team 2 Batting Points (Uses total runs, not doubled)
             let t2BatBonus = getMilestonePoints(t2Runs);
 
-            // Distribute points based on outcome conditions (Only awarded to Draw, Lose, Abandoned)
             if (outcome === "won1") {
                 t2BonusBat = t2BatBonus; t2BonusBowl = t2BowlingBonus;
             } else if (outcome === "won2") {
@@ -339,9 +334,9 @@
         let outcomeString = document.getElementById("matchOutcome").options[document.getElementById("matchOutcome").selectedIndex].text;
         
         document.getElementById("resultOutput").innerHTML = `
-            ${outcomeString} (Value of X: <strong>${X.toFixed(4)}</strong>)<br>
-            <span style="color:#111;">Team 1 Tally: <strong>${t1Total} Points</strong></span><br>
-            <span style="color:#111;">Team 2 Tally: <strong>${t2Total} Points</strong></span>
+            ${outcomeString} (Percentage of Overs Available: <strong>${xPercentage.toFixed(2)}%</strong>)<br>
+            <span style="color:#111;">Team 1: <strong>${t1Total} Points</strong></span><br>
+            <span style="color:#111;">Team 2: <strong>${t2Total} Points</strong></span>
         `;
 
         document.getElementById("detailsOutput").innerHTML = `
