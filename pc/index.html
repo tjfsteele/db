@@ -150,7 +150,7 @@
 <body>
 
 <div class="container">
-    <h2>Div 1 Red Ball Points (1302)</h2>
+    <h2>Div 1 Red Ball Points</h2>
 
     <div class="form-row">
         <div class="form-group">
@@ -341,11 +341,10 @@
 
         document.getElementById("detailsOutput").innerHTML = `
             <strong>Points Breakdown:</strong><br>
-            • <strong>Team 1:</strong> Match: ${t1MatchPts} | Batting Bonus: ${t1BonusBat} | Bowling Bonus: ${t1BonusBowl}<br>
-            • <strong>Team 2:</strong> Match: ${t2MatchPts} | Batting Bonus: ${t2BonusBat} | Bowling Bonus: ${t2BonusBowl}<br>
+            • <strong>Team 1:</strong> Match: ${t1MatchPts} | Batting: ${t1BonusBat} | Bowling: ${t1BonusBowl}<br>
+            • <strong>Team 2:</strong> Match: ${t2MatchPts} | Batting: ${t2BonusBat} | Bowling: ${t2BonusBowl}<br>
             <br>
             <span style="font-size:0.8rem; color:#666;">
-                Batting points for this match: 
                 1pt: ${Math.floor(150 * X)} | 
                 2pt: ${Math.floor(175 * X)} | 
                 3pt: ${Math.floor(200 * X)} | 
