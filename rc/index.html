@@ -427,7 +427,9 @@
         const newOvers = Math.max(0, baseOvers - oversLost);
 
         let mainMessage = "";
-        if (matchType === "Div1Red" || innings === "1") {
+        if (matchType === "Div1Red") {
+            mainMessage = `Remove ${oversLost} overs from match`;
+        } else if (innings === "1") {
             mainMessage = `Remove ${oversLost} overs from each innings`;
         } else {
             mainMessage = `Remove ${oversLost} overs from 2nd innings`;
