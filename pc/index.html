@@ -3,16 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Match Points Calculator</title>
+    <title>Div 1 Red Ball Points Calculator</title>
     <style>
         :root {
             --bg-color: #f4f6f9;
             --card-bg: #ffffff;
             --text-color: #333333;
-            --primary-color: #1a73e8;
-            --primary-hover: #1557b0;
+            --primary-color: #b30000; /* Red ball cricket theme */
+            --primary-hover: #800000;
             --border-color: #dadce0;
-            --accent-bg: #e8f0fe;
+            --accent-bg: #fdf2f2;
         }
 
         * {
@@ -38,7 +38,7 @@
             border-radius: 12px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.05);
             width: 100%;
-            max-width: 520px;
+            max-width: 550px;
         }
 
         h2 {
@@ -46,6 +46,8 @@
             margin-bottom: 15px;
             color: #111;
             font-size: 1.4rem;
+            border-bottom: 2px solid var(--primary-color);
+            padding-bottom: 10px;
         }
 
         .form-group {
@@ -114,17 +116,17 @@
         }
 
         .result-main {
-            font-size: 1.2rem;
+            font-size: 1.15rem;
             font-weight: 800;
             color: #000;
-            line-height: 1.4;
+            line-height: 1.5;
         }
         
         .result-details {
             font-size: 0.85rem;
             color: #444;
             margin-top: 10px;
-            line-height: 1.5;
+            line-height: 1.6;
             border-top: 1px dashed var(--border-color);
             padding-top: 8px;
         }
@@ -143,366 +145,225 @@
             padding: 0 6px;
             color: var(--primary-color);
         }
-
-        .info-text {
-            background-color: #f8f9fa;
-            border: 1px solid var(--border-color);
-            border-radius: 6px;
-            padding: 10px 15px;
-            font-size: 0.85rem;
-            color: #555;
-            margin-top: 15px;
-            text-align: center;
-        }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>Match Points Calculator</h2>
+    <h2>Div 1 Red Ball Calculator</h2>
 
     <div class="form-row">
         <div class="form-group">
-            <label for="matchClass">Competition / Class</label>
-            <select id="matchClass" onchange="handleClassChange()">
-                <option value="Div1Red">Division 1 Red Ball</option>
-                <option value="Div1Pink">Division 1 Pink Ball</option>
-                <option value="Div2">Division 2</option>
-                <option value="Div3">Division 3</option>
-            </select>
+            <label for="agreedOvers">Total Overs Agreed</label>
+            <input type="number" id="agreedOvers" value="110" min="1" oninput="updateCalculatedOversLabel()">
         </div>
         <div class="form-group">
-            <label for="oversStatus">Match Over Structure</label>
-            <select id="oversStatus" onchange="handleOversStatusChange()">
-                <option value="full">Standard / Full Overs</option>
-                <option value="reduced">Rule 15 Delayed Start</option>
+            <label for="matchOutcome">Result</label>
+            <select id="matchOutcome" onchange="toggleInputs()">
+                <option value="won1">Team 1 Won</option>
+                <option value="won2">Team 2 Won</option>
+                <option value="draw">Drawn Match</option>
+                <option value="tie">Match Tied</option>
+                <option value="abandoned">Match Abandoned</option>
+                <option value="cancelled">Match Cancelled</option>
             </select>
         </div>
     </div>
 
-    <!-- Hidden block that opens up to handle dynamic Rule 15 Percentage Math -->
-    <div id="rule15Block" class="form-row" style="display: none;">
-        <div class="form-group">
-            <label for="standardOvers">Standard Match Overs</label>
-            <input type="number" id="standardOvers" value="110" min="1">
+    <!-- Team 1 -->
+    <fieldset id="team1Fields">
+        <legend>Team 1 (Batting First)</legend>
+        <div class="form-row">
+            <div class="form-group">
+                <label for="t1Runs">Total Runs</label>
+                <input type="number" id="t1Runs" value="0" min="0">
+            </div>
+            <div class="form-group">
+                <label for="t1Wickets">Wickets Lost</label>
+                <input type="number" id="t1Wickets" value="0" min="0" max="10">
+            </div>
+            <div class="form-group">
+                <label for="t1Overs">Overs Batted</label>
+                <input type="number" id="t1Overs" value="0" step="0.1" min="0">
+            </div>
         </div>
-        <div id="actualOversWrapper" class="form-group">
-            <label for="actualOvers">Revised Match Total Overs</label>
-            <input type="number" id="actualOvers" value="110" min="1">
+        <div class="form-group" id="t1LookbackGroup">
+            <label for="t1LookbackRuns" id="lookbackLabel">Runs Scored at <span id="cutoffOversText">52</span> Overs</label>
+            <input type="number" id="t1LookbackRuns" value="0" min="0">
         </div>
-    </div>
+    </fieldset>
 
-    <div class="form-group">
-        <label for="matchOutcome">Match Outcome</label>
-        <select id="matchOutcome" onchange="handleOutcomeChange()">
-            <!-- Automatically populated -->
-        </select>
-    </div>
-
-    <div id="statsSection">
-        <!-- Team 1 -->
-        <fieldset id="team1Fieldset">
-            <legend id="team1Legend">Team 1 (Batting First)</legend>
-            <div class="form-row">
-                <div class="form-group">
-                    <label for="t1Runs">Total Runs Scored</label>
-                    <input type="number" id="t1Runs" value="0" min="0">
-                </div>
-                <div class="form-group">
-                    <label for="t1Wickets">Wickets Lost</label>
-                    <input type="number" id="t1Wickets" value="0" min="0" max="10">
-                </div>
+    <!-- Team 2 -->
+    <fieldset id="team2Fields">
+        <legend>Team 2 (Batting Second)</legend>
+        <div class="form-row">
+            <div class="form-group">
+                <label for="t2Runs">Total Runs</label>
+                <input type="number" id="t2Runs" value="0" min="0">
             </div>
-
-            <div id="div1RedLookback" class="form-group" style="display: none;">
-                <label for="t1RunsAt52" id="lookbackLabel">Runs Scored at End of Allotted Bonus Overs</label>
-                <input type="number" id="t1RunsAt52" value="0" min="0">
+            <div class="form-group">
+                <label for="t2Wickets">Wickets Lost</label>
+                <input type="number" id="t2Wickets" value="0" min="0" max="10">
             </div>
-            
-            <div id="redBallDrawT1Extra" style="display: none;" class="form-row">
-                <div class="form-group">
-                    <label for="t1OversAvailable">Overs Avail. before fall/decl.</label>
-                    <input type="number" id="t1OversAvailable" value="58" min="1">
-                </div>
-                <div class="form-group">
-                    <label for="t1OversBatted">Overs Actually Batted</label>
-                    <input type="number" id="t1OversBatted" value="0" step="0.1" min="0">
-                </div>
+            <div class="form-group">
+                <label for="t2Overs">Overs Batted</label>
+                <input type="number" id="t2Overs" value="0" step="0.1" min="0">
             </div>
-        </fieldset>
+        </div>
+    </fieldset>
 
-        <!-- Team 2 -->
-        <fieldset>
-            <legend id="team2Legend">Team 2 (Batting Second)</legend>
-            <div class="form-row">
-                <div class="form-group">
-                    <label for="t2Runs">Total Runs Scored</label>
-                    <input type="number" id="t2Runs" value="0" min="0">
-                </div>
-                <div class="form-group">
-                    <label for="t2Wickets">Wickets Lost</label>
-                    <input type="number" id="t2Wickets" value="0" min="0" max="10">
-                </div>
-            </div>
-
-            <div id="redBallDrawT2Extra" style="display: none;" class="form-row">
-                <div class="form-group">
-                    <label for="t2OversBatted">Overs Faced</label>
-                    <input type="number" id="t2OversBatted" value="20" step="0.1" min="0">
-                </div>
-                <div class="form-group" style="visibility: hidden;">
-                    <label>&nbsp;</label>
-                </div>
-            </div>
-        </fieldset>
-    </div>
-
-    <button type="button" onclick="calculatePoints()">Calculate Match Points</button>
+    <button type="button" onclick="calculateMatchPoints()">Calculate Points</button>
 
     <div class="result-box" id="resultBox">
         <div id="resultOutput" class="result-main"></div>
         <div id="detailsOutput" class="result-details"></div>
     </div>
-
-    <div class="info-text">
-        Context: <strong>Rule 15</strong> shifts table targets for delayed starts. <strong>Rule 67</strong> preserves original configurations against mid-match weather events.
-    </div>
 </div>
 
 <script>
-    function handleClassChange() {
-        const matchClass = document.getElementById("matchClass").value;
-        const outcomeSelect = document.getElementById("matchOutcome");
-        
-        outcomeSelect.innerHTML = "";
-
-        if (matchClass === "Div1Red") {
-            addOption(outcomeSelect, "Team1Win", "Team 1 (Batting 1st) Wins");
-            addOption(outcomeSelect, "Team2Win", "Team 2 (Batting 2nd) Wins");
-            addOption(outcomeSelect, "DrawCalculated", "Drawn Match (Calculate Run Rates)");
-            addOption(outcomeSelect, "Tie", "Match Tied");
-            addOption(outcomeSelect, "Abandoned", "Match Abandoned (Pro Rata / Min 7 Pts)");
-            addOption(outcomeSelect, "Cancelled", "Match Cancelled (7 points each)");
-            document.getElementById("standardOvers").value = 110;
-        } else {
-            addOption(outcomeSelect, "Team1Win", "Team 1 (Batting 1st) Wins");
-            addOption(outcomeSelect, "Team2Win", "Team 2 (Batting 2nd) Wins");
-            addOption(outcomeSelect, "Team2WinBowledOut", "Team 2 Wins & Opponents Bowled Out (Div 2/3 Only)");
-            addOption(outcomeSelect, "Tie", "Match Tied");
-            addOption(outcomeSelect, "Abandoned", "Match Abandoned (Pro Rata / Min 7 Pts)");
-            addOption(outcomeSelect, "Cancelled", "Match Cancelled (7 points each)");
-            document.getElementById("standardOvers").value = 100;
-        }
-
-        if (matchClass.startsWith("Div1")) {
-            for (let i = 0; i < outcomeSelect.options.length; i++) {
-                if (outcomeSelect.options[i].value === "Team2WinBowledOut") {
-                    outcomeSelect.remove(i);
-                }
-            }
-        }
-        handleOversStatusChange();
+    function updateCalculatedOversLabel() {
+        const agreed = parseFloat(document.getElementById("agreedOvers").value) || 110;
+        const X = agreed / 110;
+        const targetOvers = Math.floor(52 * X);
+        document.getElementById("cutoffOversText").innerText = targetOvers;
     }
 
-    function addOption(select, value, text) {
-        const option = document.createElement("option");
-        option.value = value;
-        option.text = text;
-        select.appendChild(option);
-    }
-
-    function handleOversStatusChange() {
-        const status = document.getElementById("oversStatus").value;
-        document.getElementById("rule15Block").style.display = (status === "reduced") ? "flex" : "none";
-        
-        const matchClass = document.getElementById("matchClass").value;
-        const lookbackLabel = document.getElementById("lookbackLabel");
-        
-        if (matchClass === "Div1Red") {
-            if (status === "reduced") {
-                lookbackLabel.innerText = "Runs Scored at Allotted Cutoff Over (Rule 15 Scaled Limit)";
-            } else {
-                lookbackLabel.innerText = "Runs Scored at 52 Overs (For Bonus Pts)";
-            }
-        }
-        handleOutcomeChange();
-    }
-
-    function handleOutcomeChange() {
+    function toggleInputs() {
         const outcome = document.getElementById("matchOutcome").value;
-        const matchClass = document.getElementById("matchClass").value;
-        const statsSection = document.getElementById("statsSection");
-        const rbDrawT1 = document.getElementById("redBallDrawT1Extra");
-        const rbDrawT2 = document.getElementById("redBallDrawT2Extra");
-        const lookbackField = document.getElementById("div1RedLookback");
-
-        statsSection.style.display = (outcome === "Cancelled") ? "none" : "block";
-        lookbackField.style.display = (matchClass === "Div1Red" && outcome !== "Cancelled") ? "block" : "none";
-
-        if (matchClass === "Div1Red" && (outcome === "DrawCalculated" || outcome === "Abandoned")) {
-            rbDrawT1.style.display = "flex";
-            rbDrawT2.style.display = "flex";
-        } else {
-            rbDrawT1.style.display = "none";
-            rbDrawT2.style.display = "none";
-        }
-    }
-
-    function getTargetScaleFactor() {
-        if (document.getElementById("oversStatus").value === "reduced") {
-            const std = parseFloat(document.getElementById("standardOvers").value) || 110;
-            const act = parseFloat(document.getElementById("actualOvers").value) || 110;
-            return act / std;
-        }
-        return 1.0;
-    }
-
-    function getBonusPoints(runs, wickets, isRedBall, isFirstInnings, scaleFactor) {
-        let batPoints = 0;
-        let bowlPoints = 0;
-
-        // Base Target Arrays
-        let div1BatTargets = [150, 175, 200, 225, 250];
-        let div23BatTargets = [125, 150, 175, 200, 225];
-
-        // Apply Rule 15 Percentage Scaling if enabled
-        if (scaleFactor < 1.0) {
-            div1BatTargets = div1BatTargets.map(t => Math.ceil(t * scaleFactor));
-            div23BatTargets = div23BatTargets.map(t => Math.ceil(t * scaleFactor));
-        }
-
-        if (isRedBall) {
-            let baseBatRuns = runs;
-            if (isFirstInnings) {
-                const lookbackRuns = parseInt(document.getElementById("t1RunsAt52").value, 10) || 0;
-                if (lookbackRuns > 0) baseBatRuns = lookbackRuns;
-            }
-
-            if (baseBatRuns >= div1BatTargets[4]) batPoints = 5;
-            else if (baseBatRuns >= div1BatTargets[3]) batPoints = 4;
-            else if (baseBatRuns >= div1BatTargets[2]) batPoints = 3;
-            else if (baseBatRuns >= div1BatTargets[1]) batPoints = 2;
-            else if (baseBatRuns >= div1BatTargets[0]) batPoints = 1;
-
-            if (wickets >= 10) bowlPoints = 5;
-            else if (wickets >= 8) bowlPoints = 4;
-            else if (wickets >= 6) bowlPoints = 3;
-            else if (wickets >= 4) bowlPoints = 2;
-            else if (wickets >= 2) bowlPoints = 1;
-
-            if (isFirstInnings) batPoints *= 2;
-        } else {
-            const isPink = (document.getElementById("matchClass").value === "Div1Pink");
-            let targets = isPink ? div1BatTargets : div23BatTargets;
-
-            if (runs >= targets[4]) batPoints = 5;
-            else if (runs >= targets[3]) batPoints = 4;
-            else if (runs >= targets[2]) batPoints = 3;
-            else if (runs >= targets[1]) batPoints = 2;
-            else if (runs >= targets[0]) batPoints = 1;
-
-            if (!isPink) batPoints *= 2; // Double points structural weight for lower divisions
-
-            if (wickets >= 10) bowlPoints = 10;
-            else if (wickets >= 8) bowlPoints = 8;
-            else if (wickets >= 6) bowlPoints = 6;
-            else if (wickets >= 4) bowlPoints = 4;
-            else if (wickets >= 2) bowlPoints = 2;
-        }
-
-        return { batPoints, bowlPoints, targetsUsed: isRedBall ? div1BatTargets : (document.getElementById("matchClass").value === "Div1Pink" ? div1BatTargets : div23BatTargets) };
-    }
-
-    function calculatePoints() {
-        const matchClass = document.getElementById("matchClass").value;
-        const outcome = document.getElementById("matchOutcome").value;
-        const scaleFactor = getTargetScaleFactor();
+        const t1Fields = document.getElementById("team1Fields");
+        const team2Fields = document.getElementById("team2Fields");
         
-        const t1Runs = parseInt(document.getElementById("t1Runs").value, 10) || 0;
-        const t1Wickets = parseInt(document.getElementById("t1Wickets").value, 10) || 0;
-        const t2Runs = parseInt(document.getElementById("t2Runs").value, 10) || 0;
-        const t2Wickets = parseInt(document.getElementById("t2Wickets").value, 10) || 0;
+        if (outcome === "cancelled") {
+            t1Fields.style.display = "none";
+            team2Fields.style.display = "none";
+        } else {
+            t1Fields.style.display = "block";
+            team2Fields.style.display = "block";
+        }
+    }
 
-        let t1Base = 0, t2Base = 0;
-        let t1BonusBat = 0, t1BonusBowl = 0, t2BonusBat = 0, t2BonusBowl = 0;
-        let details = "";
-        let finalOutcomeLabel = "";
+    function calculateMatchPoints() {
+        const agreed = parseFloat(document.getElementById("agreedOvers").value) || 110;
+        const outcome = document.getElementById("matchOutcome").value;
+        
+        const X = agreed / 110;
+        
+        const t1Runs = parseInt(document.getElementById("t1Runs").value) || 0;
+        const t1Wickets = parseInt(document.getElementById("t1Wickets").value) || 0;
+        const t1Overs = parseFloat(document.getElementById("t1Overs").value) || 1;
+        const t1Lookback = parseInt(document.getElementById("t1LookbackRuns").value) || 0;
 
-        const isRedBall = (matchClass === "Div1Red");
+        const t2Runs = parseInt(document.getElementById("t2Runs").value) || 0;
+        const t2Wickets = parseInt(document.getElementById("t2Wickets").value) || 0;
+        const t2Overs = parseFloat(document.getElementById("t2Overs").value) || 1;
 
-        const t1Bonuses = getBonusPoints(t1Runs, t1Wickets, isRedBall, true, scaleFactor);
-        const t2Bonuses = getBonusPoints(t2Runs, t2Wickets, isRedBall, false, scaleFactor);
+        let t1MatchPts = 0;
+        let t2MatchPts = 0;
+        let eligibleForBonus = false;
 
-        if (outcome === "Cancelled") {
-            t1Base = 7; t2Base = 7;
-            finalOutcomeLabel = "Match Cancelled";
-            details = "7 points allocated to each side.";
-        } 
-        else if (outcome === "Abandoned") {
-            finalOutcomeLabel = "Match Abandoned";
-            const t1EarnedBonus = t1Bonuses.batPoints + t1Bonuses.bowlPoints;
-            const t2EarnedBonus = t2Bonuses.batPoints + t2Bonuses.bowlPoints;
-
-            if (isRedBall) {
-                t1Base = (t1EarnedBonus >= 7) ? 0 : 7;
-                if (t1EarnedBonus >= 7) { t1BonusBat = t1Bonuses.batPoints; t1BonusBowl = t1Bonuses.bowlPoints; }
-                
-                t2Base = (t2EarnedBonus >= 7) ? 0 : 7;
-                if (t2EarnedBonus >= 7) { t2BonusBat = t2Bonuses.batPoints; t2BonusBowl = t2Bonuses.bowlPoints; }
-                
-                details = `Abandoned Match (Min Floor 7 applied if underlying metrics lower):<br>` +
-                          `• Team 1 Under-the-Hood: <strong>${t1EarnedBonus}</strong> Pts (Bat: ${t1Bonuses.batPoints}, Bowl: ${t1Bonuses.bowlPoints})<br>` +
-                          `• Team 2 Under-the-Hood: <strong>${t2EarnedBonus}</strong> Pts (Bat: ${t2Bonuses.batPoints}, Bowl: ${t2Bonuses.bowlPoints})`;
+        // 1. Calculate Base Match Points
+        if (outcome === "won1") {
+            t1MatchPts = 25;
+            t2MatchPts = 0;
+        } else if (outcome === "won2") {
+            t1MatchPts = 0;
+            t2MatchPts = 25;
+        } else if (outcome === "tie") {
+            t1MatchPts = 18;
+            t2MatchPts = 18;
+        } else if (outcome === "abandoned") {
+            t1MatchPts = 7;
+            t2MatchPts = 7;
+            eligibleForBonus = true;
+        } else if (outcome === "cancelled") {
+            t1MatchPts = 7;
+            t2MatchPts = 7;
+            eligibleForBonus = false;
+        } else if (outcome === "draw") {
+            eligibleForBonus = true;
+            const t1RunRate = t1Runs / (t1Overs || 1);
+            const t2RunRate = t2Runs / (t2Overs || 1);
+            if (t1RunRate > t2RunRate) {
+                t1MatchPts = 4;
+                t2MatchPts = 2;
+            } else if (t2RunRate > t1RunRate) {
+                t1MatchPts = 2;
+                t2MatchPts = 4;
             } else {
-                t1Base = 7; t2Base = 7;
-                t1BonusBat = t1Bonuses.batPoints; t1BonusBowl = t1Bonuses.bowlPoints;
-                t2BonusBat = t2Bonuses.batPoints; t2BonusBowl = t2Bonuses.bowlPoints;
+                t1MatchPts = 3; // True tie on run rate splits the points evenly
+                t2MatchPts = 3;
             }
-        } 
-        else if (outcome === "Tie") {
-            t1Base = 18; t2Base = 18;
-            finalOutcomeLabel = "Match Tied";
-        } 
-        else if (outcome === "Team1Win") {
-            t1Base = 25; 
-            t2BonusBat = t2Bonuses.batPoints; t2BonusBowl = t2Bonuses.bowlPoints;
-            if(isRedBall) { t1BonusBat = t1Bonuses.batPoints; t1BonusBowl = t1Bonuses.bowlPoints; }
-            finalOutcomeLabel = "Team 1 Wins";
-        } 
-        else if (outcome === "Team2Win") {
-            t2Base = 25;
-            t1BonusBat = t1Bonuses.batPoints; t1BonusBowl = t1Bonuses.bowlPoints;
-            if(isRedBall) { t2BonusBat = t2Bonuses.batPoints; t2BonusBowl = t2Bonuses.bowlPoints; }
-            finalOutcomeLabel = "Team 2 Wins";
         }
 
-        const t1Total = t1Base + t1BonusBat + t1BonusBowl;
-        const t2Total = t2Base + t2BonusBat + t2BonusBowl;
+        // 2. Calculate Bonus Points (Only for Draw, Lose, Abandoned matches)
+        let t1BonusBat = 0, t1BonusBowl = 0;
+        let t2BonusBat = 0, t2BonusBowl = 0;
 
+        if (eligibleForBonus || outcome === "won1" || outcome === "won2") {
+            // Bowling Bonus Points (1 pt per 2 wickets taken by the bowling team)
+            // Team 1 bowls at Team 2, so Team 1 gets points from Team 2's lost wickets
+            const t1BowlingBonus = Math.floor(t2Wickets / 2);
+            const t2BowlingBonus = Math.floor(t1Wickets / 2);
+
+            // Batting Bonus Points logic (1 pt per 25X runs scored above 125X)
+            const baseTarget = 125 * X;
+            const step = 25 * X;
+
+            // Team 1 Batting Points (Batting First, uses lookback runs at 52X)
+            let t1BatBonus = 0;
+            if (t1Lookback > baseTarget && step > 0) {
+                t1BatBonus = Math.floor((t1Lookback - baseTarget) / step);
+                t1BatBonus = t1BatBonus * 2; // Doubled for batting first
+                if (t1BatBonus > 5) t1BatBonus = 5; // Capped at 5 maximum
+            }
+
+            // Team 2 Batting Points (Batting Second, uses total runs)
+            let t2BatBonus = 0;
+            if (t2Runs > baseTarget && step > 0) {
+                t2BatBonus = Math.floor((t2Runs - baseTarget) / step);
+                if (t2BatBonus > 5) t2BatBonus = 5; // Capped at 5 maximum
+            }
+
+            // Distribute points based on outcome conditions (Only awarded to Draw, Lose, Abandoned)
+            if (outcome === "won1") {
+                // Winner gets no bonus points, loser gets points earned
+                t2BonusBat = t2BatBonus; t2BonusBowl = t2BowlingBonus;
+            } else if (outcome === "won2") {
+                t1BonusBat = t1BatBonus; t1BonusBowl = t1BowlingBonus;
+            } else if (outcome === "draw" || outcome === "abandoned") {
+                t1BonusBat = t1BatBonus; t1BonusBowl = t1BowlingBonus;
+                t2BonusBat = t2BatBonus; t2BonusBowl = t2BowlingBonus;
+            }
+        }
+
+        // Final Tallies
+        const t1Total = t1MatchPts + t1BonusBat + t1BonusBowl;
+        const t2Total = t2MatchPts + t2BonusBat + t2BonusBowl;
+
+        // Display results
+        let outcomeString = document.getElementById("matchOutcome").options[document.getElementById("matchOutcome").selectedIndex].text;
+        
         document.getElementById("resultOutput").innerHTML = `
-            ${finalOutcomeLabel}<br>
-            <span style="color:#111;">Team 1: <strong>${t1Total} Points</strong></span> &nbsp;|&nbsp; 
-            <span style="color:#111;">Team 2: <strong>${t2Total} Points</strong></span>
+            ${outcomeString} (Value of X: <strong>${X.toFixed(4)}</strong>)<br>
+            <span style="color:#111;">Team 1 Tally: <strong>${t1Total} Points</strong></span><br>
+            <span style="color:#111;">Team 2 Tally: <strong>${t2Total} Points</strong></span>
         `;
 
-        let targetsNotice = `Targets applied for points: [${t1Bonuses.targetsUsed.join(', ')}] runs.`;
-
         document.getElementById("detailsOutput").innerHTML = `
-            ${details ? details + '<br>' : ''}
-            <span style="color: #1557b0; font-size:0.8rem;">* ${targetsNotice}</span>
-            <br><br>
-            <strong>Final Points Breakdown:</strong><br>
-            • Team 1: Base ${t1Base} + Bat Bonus ${t1BonusBat} + Bowl Bonus ${t1BonusBowl}<br>
-            • Team 2: Base ${t2Base} + Bat Bonus ${t2BonusBat} + Bowl Bonus ${t2BonusBowl}
+            <strong>Points Breakdown:</strong><br>
+            • <strong>Team 1:</strong> Match: ${t1MatchPts} | Batting Bonus: ${t1BonusBat} | Bowling Bonus: ${t1BonusBowl}<br>
+            • <strong>Team 2:</strong> Match: ${t2MatchPts} | Batting Bonus: ${t2BonusBat} | Bowling Bonus: ${t2BonusBowl}<br>
+            <br>
+            <span style="font-size:0.8rem; color:#666;">
+                * Batting points structural threshold: Above ${(125 * X).toFixed(1)} runs, incremented every ${(25 * X).toFixed(1)} runs.
+            </span>
         `;
         
         document.getElementById("resultBox").style.display = "block";
     }
 
-    function initApp() {
-        handleClassChange();
-    }
-    window.onload = initApp;
+    // Initialize labels
+    updateCalculatedOversLabel();
 </script>
 </body>
 </html>
