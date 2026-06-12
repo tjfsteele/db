@@ -262,8 +262,8 @@
             </div>
         </div>
         <div class="form-group">
-            <label for="minsLost">Cumulative Minutes Lost</label>
-            <input type="number" id="minsLost" value="0" min="0">
+            <label for="minsLost">Cumulative minutes lost</label>
+            <input type="number" id="minsLost" value="" min="0">
         </div>
     </div>
 
@@ -438,8 +438,8 @@
         document.getElementById("resultOutput").innerHTML = mainMessage;
         document.getElementById("detailsOutput").innerHTML = `
             ${detailsText}<br>
-            Original base overs: <strong>${baseOvers}</strong><br>
-            Revised overs per side: <strong>${newOvers}</strong>
+            Original overs: <strong>${baseOvers}</strong><br>
+            Revised overs: <strong>${newOvers}</strong>
         `;
         document.getElementById("resultBox").style.display = "block";
     }
