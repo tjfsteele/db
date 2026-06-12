@@ -9,7 +9,7 @@
             --bg-color: #f4f6f9;
             --card-bg: #ffffff;
             --text-color: #333333;
-            --primary-color: #b30000; /* Red ball cricket theme */
+            --primary-color: #b30000;
             --primary-hover: #800000;
             --border-color: #dadce0;
             --accent-bg: #fdf2f2;
@@ -150,7 +150,7 @@
 <body>
 
 <div class="container">
-    <h2>Div 1 Red Ball Calculator</h2>
+    <h2>Div 1 Red Ball Calculator (1248)</h2>
 
     <div class="form-row">
         <div class="form-group">
@@ -290,43 +290,39 @@
                 t1MatchPts = 2;
                 t2MatchPts = 4;
             } else {
-                t1MatchPts = 3; // True tie on run rate splits the points evenly
+                t1MatchPts = 3;
                 t2MatchPts = 3;
             }
         }
 
-        // 2. Calculate Bonus Points (Only for Draw, Lose, Abandoned matches)
+        // 2. Calculate Bonus Points (For Draw, Lose, Abandoned matches)
         let t1BonusBat = 0, t1BonusBowl = 0;
         let t2BonusBat = 0, t2BonusBowl = 0;
 
         if (eligibleForBonus || outcome === "won1" || outcome === "won2") {
-            // Bowling Bonus Points (1 pt per 2 wickets taken by the bowling team)
-            // Team 1 bowls at Team 2, so Team 1 gets points from Team 2's lost wickets
+            // Bowling Bonus Points (1 point for each 2 wickets taken, rounded down)
             const t1BowlingBonus = Math.floor(t2Wickets / 2);
             const t2BowlingBonus = Math.floor(t1Wickets / 2);
 
-            // Batting Bonus Points logic (1 pt per 25X runs scored above 125X)
-            const baseTarget = 125 * X;
-            const step = 25 * X;
-
-            // Team 1 Batting Points (Batting First, uses lookback runs at 52X)
-            let t1BatBonus = 0;
-            if (t1Lookback > baseTarget && step > 0) {
-                t1BatBonus = Math.floor((t1Lookback - baseTarget) / step);
-                t1BatBonus = t1BatBonus * 2; // Doubled for batting first
-                if (t1BatBonus > 5) t1BatBonus = 5; // Capped at 5 maximum
+            // Batting Bonus Milestones function (Maximum base of 5 points)
+            function getMilestonePoints(runs) {
+                let pts = 0;
+                if (runs >= Math.floor(250 * X)) pts = 5;
+                else if (runs >= Math.floor(225 * X)) pts = 4;
+                else if (runs >= Math.floor(200 * X)) pts = 3;
+                else if (runs >= Math.floor(175 * X)) pts = 2;
+                else if (runs >= Math.floor(150 * X)) pts = 1;
+                return pts;
             }
 
-            // Team 2 Batting Points (Batting Second, uses total runs)
-            let t2BatBonus = 0;
-            if (t2Runs > baseTarget && step > 0) {
-                t2BatBonus = Math.floor((t2Runs - baseTarget) / step);
-                if (t2BatBonus > 5) t2BatBonus = 5; // Capped at 5 maximum
-            }
+            // Team 1 Batting Points (Uses lookback runs at 52X, doubled for batting first)
+            let t1BatBonus = getMilestonePoints(t1Lookback) * 2;
+
+            // Team 2 Batting Points (Uses total runs, not doubled)
+            let t2BatBonus = getMilestonePoints(t2Runs);
 
             // Distribute points based on outcome conditions (Only awarded to Draw, Lose, Abandoned)
             if (outcome === "won1") {
-                // Winner gets no bonus points, loser gets points earned
                 t2BonusBat = t2BatBonus; t2BonusBowl = t2BowlingBonus;
             } else if (outcome === "won2") {
                 t1BonusBat = t1BatBonus; t1BonusBowl = t1BowlingBonus;
@@ -340,7 +336,6 @@
         const t1Total = t1MatchPts + t1BonusBat + t1BonusBowl;
         const t2Total = t2MatchPts + t2BonusBat + t2BonusBowl;
 
-        // Display results
         let outcomeString = document.getElementById("matchOutcome").options[document.getElementById("matchOutcome").selectedIndex].text;
         
         document.getElementById("resultOutput").innerHTML = `
@@ -355,14 +350,18 @@
             • <strong>Team 2:</strong> Match: ${t2MatchPts} | Batting Bonus: ${t2BonusBat} | Bowling Bonus: ${t2BonusBowl}<br>
             <br>
             <span style="font-size:0.8rem; color:#666;">
-                * Batting points structural threshold: Above ${(125 * X).toFixed(1)} runs, incremented every ${(25 * X).toFixed(1)} runs.
+                * Target Milestones for this match (rounded down): 
+                1pt: ${Math.floor(150 * X)} runs | 
+                2pt: ${Math.floor(175 * X)} runs | 
+                3pt: ${Math.floor(200 * X)} runs | 
+                4pt: ${Math.floor(225 * X)} runs | 
+                5pt: ${Math.floor(250 * X)} runs.
             </span>
         `;
         
         document.getElementById("resultBox").style.display = "block";
     }
 
-    // Initialize labels
     updateCalculatedOversLabel();
 </script>
 </body>
