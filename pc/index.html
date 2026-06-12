@@ -334,22 +334,23 @@
         let outcomeString = document.getElementById("matchOutcome").options[document.getElementById("matchOutcome").selectedIndex].text;
         
         document.getElementById("resultOutput").innerHTML = `
-            ${outcomeString} % Overs Available: <strong>${xPercentage.toFixed(2)}%</strong>)<br>
+            ${outcomeString} % Overs: <strong>${xPercentage.toFixed(2)}%</strong>)<br>
             <span style="color:#111;">Team 1: <strong>${t1Total} Points</strong></span><br>
             <span style="color:#111;">Team 2: <strong>${t2Total} Points</strong></span>
         `;
 
         document.getElementById("detailsOutput").innerHTML = `
             <strong>Points Breakdown:</strong><br>
-            • <strong>Team 1:</strong> Match: ${t1MatchPts} | Batting: ${t1BonusBat} | Bowling: ${t1BonusBowl}<br>
-            • <strong>Team 2:</strong> Match: ${t2MatchPts} | Batting: ${t2BonusBat} | Bowling: ${t2BonusBowl}<br>
+            <strong>Team 1:</strong> Match: ${t1MatchPts} Batting: ${t1BonusBat} Bowling: ${t1BonusBowl}<br>
+            <strong>Team 2:</strong> Match: ${t2MatchPts} Batting: ${t2BonusBat} Bowling: ${t2BonusBowl}<br>
             <br>
             <span style="font-size:0.8rem; color:#666;">
-                1pt: ${Math.floor(150 * X)} | 
-                2pt: ${Math.floor(175 * X)} | 
-                3pt: ${Math.floor(200 * X)} | 
-                4pt: ${Math.floor(225 * X)} | 
-                5pt: ${Math.floor(250 * X)}
+                Batting points:
+                1: ${Math.floor(150 * X)} | 
+                2: ${Math.floor(175 * X)} | 
+                3: ${Math.floor(200 * X)} | 
+                4: ${Math.floor(225 * X)} | 
+                5: ${Math.floor(250 * X)}
             </span>
         `;
         
