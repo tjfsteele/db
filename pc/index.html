@@ -170,7 +170,6 @@
         </div>
     </div>
 
-    <!-- Team 1 -->
     <fieldset id="team1Fields">
         <legend>Team 1 (Batting First)</legend>
         <div class="form-row">
@@ -193,7 +192,6 @@
         </div>
     </fieldset>
 
-    <!-- Team 2 -->
     <fieldset id="team2Fields">
         <legend>Team 2 (Batting Second)</legend>
         <div class="form-row">
@@ -247,7 +245,7 @@
         const outcome = document.getElementById("matchOutcome").value;
         
         const X = agreed / 110;
-        const xPercentage = X * 100; // Format X as a percentage
+        const xPercentage = X * 100; 
         
         const t1Runs = parseInt(document.getElementById("t1Runs").value) || 0;
         const t1Wickets = parseInt(document.getElementById("t1Wickets").value) || 0;
@@ -306,15 +304,22 @@
 
             function getMilestonePoints(runs) {
                 let pts = 0;
-                if (runs >= Math.floor(250 * X)) pts = 5;
-                else if (runs >= Math.floor(225 * X)) pts = 4;
-                else if (runs >= Math.floor(200 * X)) pts = 3;
-                else if (runs >= Math.floor(175 * X)) pts = 2;
-                else if (runs >= Math.floor(150 * X)) pts = 1;
+                if (runs >= 250) pts = 5;
+                else if (runs >= 225) pts = 4;
+                else if (runs >= 200) pts = 3;
+                else if (runs >= 175) pts = 2;
+                else if (runs >= 150) pts = 1;
                 return pts;
             }
 
-            let t1BatBonus = getMilestonePoints(t1Lookback) * 2;
+            // Team 1 double point check
+            let t1BatBonus = 0;
+            if (t2Overs >= 20) {
+                t1BatBonus = getMilestonePoints(t1Lookback) * 2;
+            } else {
+                t1BatBonus = 0; 
+            }
+            
             let t2BatBonus = getMilestonePoints(t2Runs);
 
             if (outcome === "won1") {
@@ -328,8 +333,39 @@
         }
 
         // Final Tallies
-        const t1Total = t1MatchPts + t1BonusBat + t1BonusBowl;
-        const t2Total = t2MatchPts + t2BonusBat + t2BonusBowl;
+        let t1Total = 0;
+        let t2Total = 0;
+        let t1DetailText = "";
+        let t2DetailText = "";
+
+        if (outcome === "abandoned") {
+            const t1RawBonus = t1BonusBat + t1BonusBowl;
+            const t2RawBonus = t2BonusBat + t2BonusBowl;
+
+            t1Total = Math.max(7, t1RawBonus);
+            t2Total = Math.max(7, t2RawBonus);
+            
+            // Build intuitive descriptive text for Team 1
+            if (t1RawBonus > 7) {
+                t1DetailText = `Batting: ${t1BonusBat} Bowling: ${t1BonusBowl} (more than 7 so bonus points awarded)`;
+            } else {
+                t1DetailText = `Batting: ${t1BonusBat} Bowling: ${t1BonusBowl} (not more than 7 so 7 points awarded)`;
+            }
+
+            // Build intuitive descriptive text for Team 2
+            if (t2RawBonus > 7) {
+                t2DetailText = `Batting: ${t2BonusBat} Bowling: ${t2BonusBowl} (more than 7 so bonus points awarded)`;
+            } else {
+                t2DetailText = `Batting: ${t2BonusBat} Bowling: ${t2BonusBowl} (not more than 7 so 7 points awarded)`;
+            }
+        } else {
+            // Standard formatting for all other match outcomes
+            t1Total = t1MatchPts + t1BonusBat + t1BonusBowl;
+            t2Total = t2MatchPts + t2BonusBat + t2BonusBowl;
+            
+            t1DetailText = `Match: ${t1MatchPts} Batting: ${t1BonusBat} Bowling: ${t1BonusBowl}`;
+            t2DetailText = `Match: ${t2MatchPts} Batting: ${t2BonusBat} Bowling: ${t2BonusBowl}`;
+        }
 
         let outcomeString = document.getElementById("matchOutcome").options[document.getElementById("matchOutcome").selectedIndex].text;
         
@@ -340,22 +376,17 @@
 
         document.getElementById("detailsOutput").innerHTML = `
             <strong>% Overs:</strong> ${xPercentage.toFixed(2)}%<br>
-            <strong>Team 1:</strong> Match: ${t1MatchPts} Batting: ${t1BonusBat} Bowling: ${t1BonusBowl}<br>
-            <strong>Team 2:</strong> Match: ${t2MatchPts} Batting: ${t2BonusBat} Bowling: ${t2BonusBowl}<br>
+            <strong>Team 1:</strong> ${t1DetailText}<br>
+            <strong>Team 2:</strong> ${t2DetailText}<br>
             <br>
             <span style="font-size:0.8rem; color:#666;">
-                Batting thresholds:<br>
-                1: ${Math.floor(150 * X)} | 
-                2: ${Math.floor(175 * X)} | 
-                3: ${Math.floor(200 * X)} | 
-                4: ${Math.floor(225 * X)} | 
-                5: ${Math.floor(250 * X)}
+                Batting points thresholds (Fixed):<br>
+                1: 150 | 2: 175 | 3: 200 | 4: 225 | 5: 250
             </span>
         `;
         
         document.getElementById("resultBox").style.display = "block";
-    }
-
+        }
     updateCalculatedOversLabel();
 </script>
 </body>
