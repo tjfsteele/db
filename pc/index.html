@@ -315,9 +315,11 @@
             // Team 1 double point check
             let t1BatBonus = 0;
             if (t2Overs >= 20) {
+                // Double points if Team 2 faced 20+ overs, calculated from the lookback score
                 t1BatBonus = getMilestonePoints(t1Lookback) * 2;
             } else {
-                t1BatBonus = 0; 
+                // Standard points if Team 2 faced under 20 overs, calculated from total runs
+                t1BatBonus = getMilestonePoints(t1Runs); 
             }
             
             let t2BatBonus = getMilestonePoints(t2Runs);
