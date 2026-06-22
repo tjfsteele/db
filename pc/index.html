@@ -254,7 +254,7 @@
 
         const t2Runs = parseInt(document.getElementById("t2Runs").value) || 0;
         const t2Wickets = parseInt(document.getElementById("t2Wickets").value) || 0;
-        const t2Overs = parseFloat(document.getElementById("t2Overs").value) || 1;
+        const t2Overs = parseFloat(document.getElementById("t2Overs").value) || 0;
 
         let t1MatchPts = 0;
         let t2MatchPts = 0;
@@ -312,7 +312,7 @@
                 return pts;
             }
 
-            // Team 1 double point check
+            // Team 1 batting point check
             let t1BatBonus = 0;
             if (t2Overs >= 20) {
                 // Double points if Team 2 faced 20+ overs, calculated from the lookback score
@@ -379,10 +379,11 @@
         document.getElementById("detailsOutput").innerHTML = `
             <strong>% Overs:</strong> ${xPercentage.toFixed(2)}%<br>
             <strong>Team 1:</strong> ${t1DetailText}<br>
-            <strong>Team 2:</strong> ${t2DetailText}';
+            <strong>Team 2:</strong> ${t2DetailText}
+        `;
         
         document.getElementById("resultBox").style.display = "block";
-        }
+    }
     updateCalculatedOversLabel();
 </script>
 </body>
