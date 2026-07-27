@@ -143,7 +143,6 @@
 </div>
 
 <script>
-    // Utility to ensure empty strings instead of null/undefined
     const clean = (v) => (v === undefined || v === null) ? "" : String(v).trim();
 
     function updateClock() {
@@ -158,7 +157,7 @@
 
     async function updateScoreboard() {
         try {
-            // Added ?cache= timestamp to force fresh network fetches
+            // Force fresh network fetches
             const res = await fetch('https://api.npoint.io/f92e069f4e7bf14b4e72?cache=' + Date.now(), {
                 cache: 'no-store'
             });
@@ -168,31 +167,41 @@
             document.getElementById('main-score').textContent = (clean(d.BTN) + " " + clean(d.BTS)).trim() || "---";
             document.getElementById('bowling-team').textContent = d.FTN ? ("V " + clean(d.FTN)) : "---";
 
-            // Batsman 1
-            if (d.B1N || d.B1S) {
-                let b1s = parseFloat(d.B1S) || 0;
-                let b1b = parseFloat(d.B1B) || 0;
-                let b1sr = b1b > 0 ? ((b1s / b1b) * 100).toFixed(1) : "";
-                document.getElementById('B1N').textContent = clean(d.B1N) || "---";
-                document.getElementById('B1-full').textContent = clean(d.B1S) + (d.B1B ? " (" + clean(d.B1B) + ") " : "") + b1sr;
-            } else {
-                document.getElementById('B1N').textContent = "---";
-                document.getElementById('B1-full').textContent = "";
+            // --- BATSMAN 1 ---
+            let b1Name = clean(d.B1N);
+            let b1Score = clean(d.B1S);
+            let b1Balls = clean(d.B1B);
+            
+            document.getElementById('B1N').textContent = b1Name || "---";
+            
+            let b1StatText = "";
+            if (b1Score !== "") {
+                b1StatText = b1Score;
+                if (b1Balls !== "") {
+                    let sr = ((parseFloat(b1Score) / parseFloat(b1Balls)) * 100).toFixed(1);
+                    b1StatText += " (" + b1Balls + ") " + (isNaN(sr) ? "" : sr);
+                }
             }
+            document.getElementById('B1-full').textContent = b1StatText;
 
-            // Batsman 2
-            if (d.B2N || d.B2S) {
-                let b2s = parseFloat(d.B2S) || 0;
-                let b2b = parseFloat(d.B2B) || 0;
-                let b2sr = b2b > 0 ? ((b2s / b2b) * 100).toFixed(1) : "";
-                document.getElementById('B2N').textContent = clean(d.B2N) || "---";
-                document.getElementById('B2-full').textContent = clean(d.B2S) + (d.B2B ? " (" + clean(d.B2B) + ") " : "") + b2sr;
-            } else {
-                document.getElementById('B2N').textContent = "---";
-                document.getElementById('B2-full').textContent = "";
+            // --- BATSMAN 2 ---
+            let b2Name = clean(d.B2N);
+            let b2Score = clean(d.B2S);
+            let b2Balls = clean(d.B2B);
+
+            document.getElementById('B2N').textContent = b2Name || "---";
+            
+            let b2StatText = "";
+            if (b2Score !== "") {
+                b2StatText = b2Score;
+                if (b2Balls !== "") {
+                    let sr = ((parseFloat(b2Score) / parseFloat(b2Balls)) * 100).toFixed(1);
+                    b2StatText += " (" + b2Balls + ") " + (isNaN(sr) ? "" : sr);
+                }
             }
+            document.getElementById('B2-full').textContent = b2StatText;
 
-            // Bowlers
+            // --- BOWLERS ---
             document.getElementById('F1N').textContent = clean(d.F1N) || "---";
             document.getElementById('F1-full').textContent = clean(d.F1S);
             document.getElementById('F2N').textContent = clean(d.F2N) || "---";
@@ -206,7 +215,7 @@
             document.getElementById('rrr').textContent = clean(d.RRR);
             document.getElementById('dls-value').textContent = clean(d.DLP); 
             
-            // OVERS: Primary check OVB (Overs Bowled), secondary regex on F1S
+            // OVERS (OVB)
             let overs = clean(d.OVB);
             if (!overs && d.F1S) {
                 const oversMatch = d.F1S.match(/\(([^)]+)\)/);
@@ -229,8 +238,9 @@
         updateClock();
         setInterval(updateClock, 1000);
         updateScoreboard();
-        setInterval(updateScoreboard, 3000); // Polls every 3s
+        setInterval(updateScoreboard, 3000);
     });
 </script>
+
 </body>
 </html>
