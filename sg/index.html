@@ -144,7 +144,7 @@
 
 <script>
     // Utility to ensure empty strings instead of null/undefined
-    const clean = (v) => (v === undefined || v === null) ? "" : v;
+    const clean = (v) => (v === undefined || v === null) ? "" : String(v).trim();
 
     function updateClock() {
         const clockEl = document.getElementById('clock');
@@ -158,21 +158,39 @@
 
     async function updateScoreboard() {
         try {
-            const res = await fetch('https://api.npoint.io/f92e069f4e7bf14b4e72');
+            // Added ?cache= timestamp to force fresh network fetches
+            const res = await fetch('https://api.npoint.io/f92e069f4e7bf14b4e72?cache=' + Date.now(), {
+                cache: 'no-store'
+            });
             const d = await res.json();
 
             // Main Score Header
-            document.getElementById('main-score').textContent = clean(d.BTN) + " " + clean(d.BTS);
-            document.getElementById('bowling-team').textContent = "V " + clean(d.FTN);
+            document.getElementById('main-score').textContent = (clean(d.BTN) + " " + clean(d.BTS)).trim() || "---";
+            document.getElementById('bowling-team').textContent = d.FTN ? ("V " + clean(d.FTN)) : "---";
 
-            // Batsmen
-            let b1sr = (parseFloat(d.B1S) / parseFloat(d.B1B) * 100).toFixed(1);
-            document.getElementById('B1N').textContent = clean(d.B1N) || "---";
-            document.getElementById('B1-full').textContent = clean(d.B1S) + " (" + clean(d.B1B) + ") " + (isNaN(b1sr) ? "" : b1sr);
-            
-            let b2sr = (parseFloat(d.B2S) / parseFloat(d.B2B) * 100).toFixed(1);
-            document.getElementById('B2N').textContent = clean(d.B2N) || "---";
-            document.getElementById('B2-full').textContent = clean(d.B2S) + " (" + clean(d.B2B) + ") " + (isNaN(b2sr) ? "" : b2sr);
+            // Batsman 1
+            if (d.B1N || d.B1S) {
+                let b1s = parseFloat(d.B1S) || 0;
+                let b1b = parseFloat(d.B1B) || 0;
+                let b1sr = b1b > 0 ? ((b1s / b1b) * 100).toFixed(1) : "";
+                document.getElementById('B1N').textContent = clean(d.B1N) || "---";
+                document.getElementById('B1-full').textContent = clean(d.B1S) + (d.B1B ? " (" + clean(d.B1B) + ") " : "") + b1sr;
+            } else {
+                document.getElementById('B1N').textContent = "---";
+                document.getElementById('B1-full').textContent = "";
+            }
+
+            // Batsman 2
+            if (d.B2N || d.B2S) {
+                let b2s = parseFloat(d.B2S) || 0;
+                let b2b = parseFloat(d.B2B) || 0;
+                let b2sr = b2b > 0 ? ((b2s / b2b) * 100).toFixed(1) : "";
+                document.getElementById('B2N').textContent = clean(d.B2N) || "---";
+                document.getElementById('B2-full').textContent = clean(d.B2S) + (d.B2B ? " (" + clean(d.B2B) + ") " : "") + b2sr;
+            } else {
+                document.getElementById('B2N').textContent = "---";
+                document.getElementById('B2-full').textContent = "";
+            }
 
             // Bowlers
             document.getElementById('F1N').textContent = clean(d.F1N) || "---";
@@ -186,16 +204,21 @@
             // Match Info Grid
             document.getElementById('target').textContent = clean(d.BTT);
             document.getElementById('rrr').textContent = clean(d.RRR);
-            
-            // DLS PAR: Explicitly empty if missing from data
             document.getElementById('dls-value').textContent = clean(d.DLP); 
             
-            // Extract Overs from Bowler string "(0.3)"
-            const oversMatch = d.F1S ? d.F1S.match(/\(([^)]+)\)/) : null;
-            document.getElementById('ovs-current').textContent = oversMatch ? oversMatch[1] : "";
+            // OVERS: Primary check OVB (Overs Bowled), secondary regex on F1S
+            let overs = clean(d.OVB);
+            if (!overs && d.F1S) {
+                const oversMatch = d.F1S.match(/\(([^)]+)\)/);
+                if (oversMatch) overs = oversMatch[1];
+            }
+            document.getElementById('ovs-current').textContent = overs;
             
             document.getElementById('crr').textContent = clean(d.CRR);
-            document.getElementById('lwk').textContent = clean(d.LWK) + " " + clean(d.LWN);
+            
+            // Last Wicket
+            let lwkText = (clean(d.LWK) + " " + clean(d.LWN)).trim();
+            document.getElementById('lwk').textContent = lwkText;
 
         } catch (e) { 
             console.error("Scoreboard update failed:", e); 
@@ -206,9 +229,8 @@
         updateClock();
         setInterval(updateClock, 1000);
         updateScoreboard();
-        setInterval(updateScoreboard, 5000);
+        setInterval(updateScoreboard, 3000); // Polls every 3s
     });
 </script>
-
 </body>
 </html>
