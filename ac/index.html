@@ -53,7 +53,6 @@
 </div>
 
 <script>
-    console.log('Script Starting...');
     const urlParams = new URLSearchParams(window.location.search);
     const REGION = (urlParams.get('region') || 'A').toUpperCase();
     document.getElementById('region-badge').innerText = `Region ${REGION}`;
@@ -73,8 +72,8 @@
         await fetchData(); 
         setupInteractions();
         
-        // Refresh the UI every 30 seconds (for the "now" pointer)
-        setInterval(refreshUI, 30000); 
+        // Refresh the UI every 5 minutes (for the "now" pointer)
+        setInterval(refreshUI, 300000); 
         
         // Fetch fresh data from Octopus every 30 minutes
         setInterval(fetchData, 1800000); 
@@ -97,7 +96,6 @@
 
     async function fetchData() {
         try {
-            console.log("Fetching data...");
             const [tRes, aRes] = await Promise.all([fetch(TRACKER_API), fetch(AGILE_API)]);
             const tData = await tRes.json();
             const aData = await aRes.json();
@@ -201,7 +199,6 @@
         });
 
         if (currentRate) {
-            console.log(`LIVE UPDATE: Price is ${currentRate.value_inc_vat}p for block ${currentRate.valid_from}`);
             updateDisplay(currentRate.value_inc_vat, getSegmentStyle(currentRate.value_inc_vat).color);
         }
     }
