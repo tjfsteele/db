@@ -110,6 +110,16 @@
       font-size: 1.05rem;
     }
 
+    .rssi-badge {
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: var(--text-muted);
+      background-color: #f8fafc;
+      padding: 3px 6px;
+      border-radius: 4px;
+      border: 1px solid var(--border-color);
+    }
+
     .status-bar {
       padding: 12px 20px;
       background-color: #f8fafc;
@@ -147,12 +157,13 @@
         <tr>
           <th>Meter Serial</th>
           <th>Volume (m³)</th>
+          <th>Signal (RSSI)</th>
           <th>Last Seen</th>
         </tr>
       </thead>
       <tbody id="meter-table-body">
         <tr>
-          <td colspan="3" class="empty-msg">Loading meter data...</td>
+          <td colspan="4" class="empty-msg">Loading meter data...</td>
         </tr>
       </tbody>
     </table>
@@ -184,7 +195,7 @@
       tbody.innerHTML = '';
 
       if (serials.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="3" class="empty-msg">No meter readings found in snapshot.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="4" class="empty-msg">No meter readings found in snapshot.</td></tr>`;
         statusCount.textContent = '0 meters loaded';
         return;
       }
@@ -192,6 +203,7 @@
       serials.forEach(serial => {
         const item = data[serial];
         const volumeM3 = Number(item.volume_m3 || 0);
+        const rssiText = (item.rssi !== undefined && item.rssi !== null) ? `${item.rssi} dBm` : 'N/A';
         
         let formattedDate = item.timestamp;
         if (item.timestamp) {
@@ -203,6 +215,7 @@
         row.innerHTML = `
           <td><span class="serial-badge">${serial}</span></td>
           <td class="volume-val">${volumeM3.toFixed(3)}</td>
+          <td><span class="rssi-badge">${rssiText}</span></td>
           <td>${formattedDate}</td>
         `;
         tbody.appendChild(row);
@@ -212,7 +225,7 @@
       statusUpdated.textContent = `Last checked: ${new Date().toLocaleTimeString()}`;
 
     } catch (err) {
-      tbody.innerHTML = `<tr><td colspan="3" class="error-msg">Failed to load data: ${err.message}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="4" class="error-msg">Failed to load data: ${err.message}</td></tr>`;
       statusUpdated.textContent = `Last check failed: ${new Date().toLocaleTimeString()}`;
     }
   }
